@@ -1,11 +1,13 @@
 1. Make sure Python 3 is installed and available as `python3`
 2. Clone the repository and make sure you're cd'd to it
-3. Run::
+3. Run:
 
-    $ python3 -m venv venv
-    $ . ./venv/activate
-    $ pip install -r requirements.txt
-    $ python3 labyrinth.py
+```
+$ python3 -m venv venv
+$ . ./venv/activate
+$ pip install -r requirements.txt
+$ python3 labyrinth.py
+```
 
 You should see something like:
 
