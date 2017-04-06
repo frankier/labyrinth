@@ -68,32 +68,6 @@ for i in range(34):
 NUM_TREASURES = 24
 PLAYER_COLORS = ['Red', 'Green', 'Blue', 'Yellow']
 PLAYER_SYMBOLS = ['R', 'G', 'B', 'Y']
-TREASURE_NAMES = [
-    "Treasure Map",
-    "Gold Ring",
-    "Gold Crown",
-    "Bag of Gold Coins",
-    "Book with Clasp",
-    "Set of Keys",
-    "Sword",
-    "Skull",
-    "Jewel",
-    "Gold Menorah",
-    "Helmet (armor)",
-    "Treasure Chest",
-    "Bat",
-    "Dragon",
-    "Ghost in Bottle",
-    "Ghost (waving)",
-    "Lady Pig",
-    "Sorceress",
-    "Lizard",
-    "Moth",
-    "Owl",
-    "Scarab",
-    "Rat",
-    "Spider with Web",
-]
 PATH_SYMBOLS = [
     ("│", "─"),
     ("└", "┌", "┐", "┘"),
