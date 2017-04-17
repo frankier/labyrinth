@@ -1,5 +1,6 @@
 from gym import error
 
+import math
 import random
 import numpy as np
 import gym
@@ -17,61 +18,116 @@ MOBILE_TREASURES = 12
 STRAIGHT_TYPE = 0
 CORNER_TYPE = 1
 T_TYPE = 2
+CROSSROADS_TYPE = 3
+NUM_ORIENTATIONS = [2, 4, 4, 1]
+
 
 # orientation = 0 corresponds to │ └ ├
 # orientation is measured in right turns clockwise
 # note due to symmetry | only takes orientation = 0, 1
 
 tile_dt = np.dtype({'names': ['path_type', 'orientation', 'treasure', 'base'],
-                 'formats': [np.uint8, np.uint8, np.int8, np.int8]})
+                    'formats': [np.uint8, np.uint8, np.int8, np.int8]})
 
-
-initial_board = np.ndarray((7, 7), tile_dt)
-mobile_tiles = np.ndarray(34, tile_dt)
-
-
-treasure = 0
 
 # board is set up with raster coordinates
 # red  _|_ yellow
 # green |  blue
 
-# set up static board
-board_view = initial_board
-# outside
-for orientation in range(4):
-    # t-junctions
-    for i in range(3):
-        tile = (T_TYPE, orientation, treasure, -1)
-        board_view[(i // 2) * 2, (i % 2) * 2 + 2] = tile
-        treasure += 1
-    # corner
-    base = (1 - orientation) % 4
-    tile = (CORNER_TYPE, orientation, -1, base)
-    board_view[0, 6] = tile
-    board_view = np.rot90(board_view, 3)
 
-mobile_tiles_idx = 0
-
-for i in range(34):
-    if i < 6:
-        mobile_tiles[i] = (STRAIGHT_TYPE, 0, treasure, -1)
-    elif i < 12:
-        mobile_tiles[i] = (CORNER_TYPE, 0, treasure, -1)
-    elif i < 25:
-        mobile_tiles[i] = (STRAIGHT_TYPE, 0, -1, -1)
-    else:
-        mobile_tiles[i] = (CORNER_TYPE, 0, -1, -1)
-    treasure += 1
+def place_corners(board):
+    # set up static board
+    size, size = board.shape
+    board_view = board
+    # outside
+    for orientation in range(4):
+        # corner
+        base = (1 - orientation) % 4
+        tile = (CORNER_TYPE, orientation, -1, base)
+        board_view[0, size - 1] = tile
+        board_view = np.rot90(board_view, 3)
 
 
-NUM_TREASURES = 24
+def ssize_of_size(size):
+    return math.ceil(size / 2)
+
+
+def place_static(board, center_treasure=False):
+    treasure_idx = 0
+    size, size = board.shape
+    ssize = ssize_of_size(size)
+    if ssize % 2 == 1:
+        if center_treasure:
+            tile = (CROSSROADS_TYPE, 0, treasure_idx, -1)
+            treasure_idx += 1
+        else:
+            tile = (CROSSROADS_TYPE, 0, -1, -1)
+        board[ssize - 1, ssize - 1] = tile
+    board_view = board
+    for orientation in range(4):
+        start_pos = 1
+        end_pos = ssize - 1
+        # t-junctions
+        for layer in range(math.floor(ssize / 2)):
+            for item in range(start_pos, end_pos):
+                tile = (T_TYPE, orientation, treasure_idx, -1)
+                board_view[layer * 2, item * 2] = tile
+                treasure_idx += 1
+            if layer % 2 == 1:
+                start_pos += 1
+            end_pos -= 1
+        board_view = np.rot90(board_view, 3)
+    return treasure_idx
+
+
+def mk_mobile_tiles(st_t, co_t, st_nt, co_nt, treasure_idx):
+    num_tiles = st_t + co_t + st_nt + co_nt
+    mobile_tiles = np.ndarray(num_tiles, tile_dt)
+    mobile_tiles_idx = 0
+
+    for i in range(st_t):
+        mobile_tiles[mobile_tiles_idx] = (STRAIGHT_TYPE, 0, treasure_idx, -1)
+        mobile_tiles_idx += 1
+        treasure_idx += 1
+
+    for i in range(co_t):
+        mobile_tiles[mobile_tiles_idx] = (CORNER_TYPE, 0, treasure_idx, -1)
+        mobile_tiles_idx += 1
+        treasure_idx += 1
+
+    for i in range(st_nt):
+        mobile_tiles[mobile_tiles_idx] = (STRAIGHT_TYPE, 0, -1, -1)
+        mobile_tiles_idx += 1
+
+    for i in range(co_nt):
+        mobile_tiles[mobile_tiles_idx] = (CORNER_TYPE, 0, -1, -1)
+        mobile_tiles_idx += 1
+
+    return mobile_tiles
+
+
+def mk_box_contents(size=7):
+    board = np.ndarray((size, size), tile_dt)
+    ssize = ssize_of_size(size)
+    place_corners(board)
+    treasure_idx = place_static(board)
+    m_treasures = max(treasure_idx, 4 * (ssize - 1))
+    hm_treasures  = math.floor(m_treasures / 2)
+    mobile_tiles = size * size - ssize * ssize + 1
+    nt_tiles = mobile_tiles - m_treasures
+    st_nt = math.floor(nt_tiles * 3 / 5)
+    co_nt = nt_tiles - st_nt
+    mobile_tiles = mk_mobile_tiles(hm_treasures, hm_treasures, st_nt, co_nt, treasure_idx)
+    return (board, mobile_tiles, treasure_idx + m_treasures)
+
+
 PLAYER_COLORS = ['Red', 'Green', 'Blue', 'Yellow']
 PLAYER_SYMBOLS = ['R', 'G', 'B', 'Y']
 PATH_SYMBOLS = [
     ("│", "─"),
     ("└", "┌", "┐", "┘"),
     ("├", "┬", "┤", "┴"),
+    ("+"),
 ]
 
 
@@ -81,12 +137,23 @@ class LabyrinthState(object):
     Labyrinth game state. Consists of a board, a current player, player
     positions, player cards & number of revealed cards per player.
     '''
-    def __init__(self, board_state, player_turn, player_positions, player_cards, player_cards_found):
+    def __init__(self, board_state, player_turn, players, num_treasures):
         self.board_state = board_state
         self.player_turn = player_turn
-        self.player_positions = player_positions
-        self.player_cards = player_cards
-        self.player_cards_found = player_cards_found
+        self.players = players
+        self.num_treasures = num_treasures
+
+    @property
+    def long_treasures(self):
+        return self.num_treasures > 26
+
+    @property
+    def player_positions(self):
+        return [pos for (pos, cards, found) in self.players]
+
+    @property
+    def num_players(self):
+        return len(self.players)
 
     def act(self, action):
         '''
@@ -102,40 +169,46 @@ class LabyrinthState(object):
     def __repr__(self):
         bits = []
         bits.append('To play: {}'.format(PLAYER_COLORS[self.player_turn]))
-        bits.append(draw_board(self.board_state[0], self.player_positions))
+        bits.append(draw_board(self.board_state[0], self.player_positions, long_treasures=self.long_treasures))
         bits.append("")
-        bits.append("Spare tile: {}".format(draw_tile(self.board_state[1])))
+        bits.append("Spare tile: {}".format(draw_tile(self.board_state[1], long_treasures=self.long_treasures)))
         bits.append("")
-        player_statuses = ([], [], [], [])
-        for player_idx, (player_cards, cards_found) in enumerate(zip(self.player_cards, self.player_cards_found)):
+        player_statuses = []
+        for i in range(self.num_players):
+            player_statuses.append([])
+        for player_idx, (pos, cards, found) in enumerate(self.players):
             player_bits = player_statuses[player_idx]
             player_bits.append("= {} =".format(PLAYER_COLORS[player_idx]))
-            for card_idx, card in enumerate(player_cards):
-                current = card_idx == cards_found
-                player_bits.append("{}{}".format("*" if current else "", treasure_letter(card)))
+            for card_idx, card in enumerate(cards):
+                current = card_idx == found
+                player_bits.append("{}{}".format("*" if current else "", treasure_letter(card, long_treasures=self.long_treasures)))
         for row in zip(*player_statuses):
-            bits.append("{: >18} {: >18} {: >18} {: >18}".format(*row))
+            bits.append(("{: >18} " * self.num_players).format(*row))
         return "\n".join(bits)
 
 
-def treasure_letter(treasure):
-    return chr(97 + treasure)
-
-
-def draw_tile(tile):
-    s1 = PATH_SYMBOLS[tile['path_type']][tile['orientation']]
-    if tile['treasure'] != -1:
-        s2 = treasure_letter(tile['treasure'])
-    elif tile['base'] != -1:
-        s2 = PLAYER_SYMBOLS[tile['base']]
+def treasure_letter(treasure, long_treasures=False):
+    if long_treasures:
+        return treasure_letter(treasure // 26) + treasure_letter(treasure % 26)
     else:
-        s2 = " "
+        return chr(97 + treasure)
+
+
+def draw_tile(tile, long_treasures=False):
+    s1 = PATH_SYMBOLS[tile['path_type']][tile['orientation']]
+    pad = " " if long_treasures else ""
+    if tile['treasure'] != -1:
+        s2 = treasure_letter(tile['treasure'], long_treasures=long_treasures)
+    elif tile['base'] != -1:
+        s2 = PLAYER_SYMBOLS[tile['base']] + pad
+    else:
+        s2 = " " + pad
     return s1 + s2
 
 
 def draw_players(coord, player_positions):
     players_nibble = 0
-    for i in range(3, -1, -1):
+    for i in range(len(player_positions) - 1, -1, -1):
         players_nibble <<= 1
         if player_positions[i] == coord:
             players_nibble |= 0x01
@@ -144,24 +217,28 @@ def draw_players(coord, player_positions):
     return " "
 
 
-def draw_board(board_state, player_positions):
+def draw_board(board_state, player_positions, long_treasures=False):
     rows, cols = board_state.shape
-    return "\n".join(" ".join(draw_tile(board_state[x, y]) + draw_players((x, y), player_positions)
-                     for x in range(cols))
-           for y in range(rows))
+    return "\n".join(
+        " ".join(
+            draw_tile(board_state[x, y],
+                      long_treasures=long_treasures) +
+            draw_players((x, y), player_positions)
+            for x in range(cols))
+        for y in range(rows))
 
 
 def shuffle_rotate_tiles(tiles):
     for i in np.ndindex(tiles.shape):
-        if tiles[i]['path_type'] == STRAIGHT_TYPE:
-            tiles[i]['orientation'] = random.randint(0, 1)
-        else:
-            tiles[i]['orientation'] = random.randint(0, 3)
-    return
+        tiles[i]['orientation'] = random.randint(
+            0, NUM_ORIENTATIONS[tiles[i]['path_type']] - 1)
 
 
-def mk_initial_labyrinth_state():
-    board = np.copy(initial_board)
+def mk_initial_labyrinth_state(board, mobile_tiles, num_treasures, num_players=4):
+    assert 1 <= num_players <= 4
+    board = np.copy(board)
+    size, size = board.shape
+    far = size - 1
     to_place = np.random.permutation(mobile_tiles)
     shuffle_rotate_tiles(to_place)
     place_idx = 0
@@ -171,10 +248,14 @@ def mk_initial_labyrinth_state():
             place_idx += 1
     board_state = (board, to_place[place_idx])
     turn = 0
-    player_positions = [(0, 0), (0, 6), (6, 6), (6, 0)]
-    player_cards = np.split(np.random.permutation(NUM_TREASURES), 4)
-    player_cards_found = [0, 0, 0, 0]
-    return LabyrinthState(board_state, turn, player_positions, player_cards, player_cards_found)
+    player_positions = []
+    for pos in [0, 3, 1, 2][:num_players]:
+        player_positions.append(((pos // 2) * far, (pos % 2) * far))
+    player_cards = np.split(
+        np.random.permutation(num_treasures), 4)[:num_players]
+    player_cards_found = [0] * num_players
+    players = list(zip(player_positions, player_cards, player_cards_found))
+    return LabyrinthState(board_state, turn, players, num_treasures)
 
 
 # Adversary policies
@@ -189,4 +270,6 @@ def make_random_policy(np_random):
 
 
 if __name__ == '__main__':
-    print(repr(mk_initial_labyrinth_state()))
+    size = int(sys.argv[1]) if len(sys.argv) > 1 else 7
+    num_players = int(sys.argv[2]) if len(sys.argv) > 2 else 4
+    print(repr(mk_initial_labyrinth_state(*mk_box_contents(size), num_players=num_players)))
