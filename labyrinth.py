@@ -107,6 +107,7 @@ def mk_mobile_tiles(st_t, co_t, st_nt, co_nt, treasure_idx):
 
 
 def mk_box_contents(size=7):
+    assert size >= 3 and size % 2 == 1
     board = np.ndarray((size, size), tile_dt)
     ssize = ssize_of_size(size)
     place_corners(board)
