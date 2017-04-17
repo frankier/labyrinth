@@ -130,6 +130,19 @@ PATH_SYMBOLS = [
     ("├", "┬", "┤", "┴"),
     ("+"),
 ]
+TILE_PASSABILITIES = [
+    [(True, False, True, False)],
+    [(True, True, False, False)],
+    [(True, True, True, False)],
+    [(True, True, True, True)],
+]
+
+
+def get_tile_passability(tile):
+    # Takes tile_dt
+    # Returns passability (north, east, south, west)
+    passability = TILE_PASSABILITIES[tile['path_type']]
+    return np.roll(passability, tile['orientation'])
 
 
 ## State
