@@ -145,6 +145,13 @@ def get_tile_passability(tile):
     return np.roll(passability, tile['orientation'])
 
 
+def get_board_reachability(board, position):
+    # Takes board, position
+    # Returns boolean array of all squares reachable on board from position
+    # TODO
+    pass
+
+
 ## State
 class LabyrinthState(object):
     '''
@@ -284,6 +291,7 @@ def make_random_policy(np_random):
 
 
 if __name__ == '__main__':
+    # This is just a test to show board generation is working
     size = int(sys.argv[1]) if len(sys.argv) > 1 else 7
     num_players = int(sys.argv[2]) if len(sys.argv) > 2 else 4
     print(repr(mk_initial_labyrinth_state(*mk_box_contents(size), num_players=num_players)))
