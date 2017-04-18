@@ -15,27 +15,61 @@ import six
 FIXED_TREASURES = 12
 MOBILE_TREASURES = 12
 
+# Tile types
 STRAIGHT_TYPE = 0
 CORNER_TYPE = 1
 T_TYPE = 2
 CROSSROADS_TYPE = 3
+# Tile type data
 NUM_ORIENTATIONS = [2, 4, 4, 1]
+PATH_SYMBOLS = [
+    ("│", "─"),
+    ("└", "┌", "┐", "┘"),
+    ("├", "┬", "┤", "┴"),
+    ("+"),
+]
+TILE_PASSABILITIES = [
+    [(True, False, True, False)],
+    [(True, True, False, False)],
+    [(True, True, True, False)],
+    [(True, True, True, True)],
+]
+
+# Player info
+PLAYER_COLORS = ['Red', 'Green', 'Blue', 'Yellow']
+PLAYER_SYMBOLS = ['R', 'G', 'B', 'Y']
 
 
-# orientation = 0 corresponds to │ └ ├
-# orientation is measured in right turns clockwise
-# note due to symmetry | only takes orientation = 0, 1
-
+# Tile datatype
 tile_dt = np.dtype({'names': ['path_type', 'orientation', 'treasure', 'base'],
                     'formats': [np.uint8, np.uint8, np.int8, np.int8]})
+tile_dt.__doc__ = """
+The datatype for a Labyrinth tile.
 
+path_type is one of STRAIGHT_TYPE, CORNER_TYPE, T_TYPE or CROSSROADS_TYPE
 
-# board is set up with raster coordinates
-# red  _|_ yellow
-# green |  blue
+orientation = 0 corresponds to │ └ ├
+orientation is measured in right turns clockwise
+note due to symmetry | only takes orientation = 0, 1
+
+treasure is a number >= 0, corresponding to a treasure if the tile contains a
+treasure, -1 otherwise
+
+base is a number, 0 <= base < 4, corresponding to the colour of the base on a
+tile if the tile is a base, -1 otherwise
+
+A board is made up of a 2d ndarray of these.
+"""
 
 
 def place_corners(board):
+    """
+    Place the 4 static corner/base tiles on a board.
+
+    board is set up with raster coordinates
+    red  _|_ yellow
+    green |  blue
+    """
     # set up static board
     size, size = board.shape
     board_view = board
@@ -49,10 +83,16 @@ def place_corners(board):
 
 
 def ssize_of_size(size):
+    """
+    Get the static size from a board size, eg a 7x7 board has 4x4 static tiles.
+    """
     return math.ceil(size / 2)
 
 
 def place_static(board, center_treasure=False):
+    """
+    Place all static tiles apart from the corner tiles on a board.
+    """
     treasure_idx = 0
     size, size = board.shape
     ssize = ssize_of_size(size)
@@ -81,6 +121,9 @@ def place_static(board, center_treasure=False):
 
 
 def mk_mobile_tiles(st_t, co_t, st_nt, co_nt, treasure_idx):
+    """
+    Make a collection of the movable tiles on a Labyrinth board.
+    """
     num_tiles = st_t + co_t + st_nt + co_nt
     mobile_tiles = np.ndarray(num_tiles, tile_dt)
     mobile_tiles_idx = 0
@@ -107,6 +150,18 @@ def mk_mobile_tiles(st_t, co_t, st_nt, co_nt, treasure_idx):
 
 
 def mk_box_contents(size=7):
+    """
+    Make the contents of a (variation of a) Ravensburger Labyrinth box.
+
+    Takes a optionally a size which must be odd and >= 3. For example, passing
+    in 7 will make a 7x7 version of Labyrinth configured the same as the
+    original.  Passing in 3 will make a tiny 3x3 version of Labyrinth.
+
+    Returns (board, mobile_tiles, num_treasures) where
+    board is a 2d array of tile_dt (a board populated with the static tiles)
+    mobile_tiles is a 1d array of tile_dt (a list of the movable tiles)
+    num_treasures is the total number of treasures
+    """
     assert size >= 3 and size % 2 == 1
     board = np.ndarray((size, size), tile_dt)
     ssize = ssize_of_size(size)
@@ -122,25 +177,13 @@ def mk_box_contents(size=7):
     return (board, mobile_tiles, treasure_idx + m_treasures)
 
 
-PLAYER_COLORS = ['Red', 'Green', 'Blue', 'Yellow']
-PLAYER_SYMBOLS = ['R', 'G', 'B', 'Y']
-PATH_SYMBOLS = [
-    ("│", "─"),
-    ("└", "┌", "┐", "┘"),
-    ("├", "┬", "┤", "┴"),
-    ("+"),
-]
-TILE_PASSABILITIES = [
-    [(True, False, True, False)],
-    [(True, True, False, False)],
-    [(True, True, True, False)],
-    [(True, True, True, True)],
-]
-
-
 def get_tile_passability(tile):
-    # Takes tile_dt
-    # Returns passability (north, east, south, west)
+    """
+    Get the passability of a tile.
+
+    Takes tile_dt
+    Returns passability (north, east, south, west)
+    """
     passability = TILE_PASSABILITIES[tile['path_type']]
     return np.roll(passability, tile['orientation'])
 
@@ -256,6 +299,11 @@ def shuffle_rotate_tiles(tiles):
 
 
 def mk_initial_labyrinth_state(board, mobile_tiles, num_treasures, num_players=4):
+    """
+    Return the starting Labyrinth state by placing all but one of mobile_tiles
+    on a board, dealing the treasure cards to the players and placing their
+    pieces on their bases.
+    """
     assert 1 <= num_players <= 4
     board = np.copy(board)
     size, size = board.shape
