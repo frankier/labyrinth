@@ -35,6 +35,7 @@ tile_dt = np.dtype({'names': ['path_type', 'orientation', 'treasure', 'base'],
 # green |  blue
 
 
+
 def place_corners(board):
     # set up static board
     size, size = board.shape
@@ -144,13 +145,17 @@ def get_tile_passability(tile):
     passability = TILE_PASSABILITIES[tile['path_type']]
     return np.roll(passability, tile['orientation'])
 
+def reach_test():
+	board = mk_box_contents()[0]
+	position = (1,1)
+	reachability = get_board_reachability(board, position)
+	print(reachability)
 
 def get_board_reachability(board, position):
     # Takes board, position
     # Returns boolean array of all squares reachable on board from position
     # TODO
-    pass
-
+	return False
 
 ## State
 class LabyrinthState(object):
