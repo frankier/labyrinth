@@ -43,7 +43,7 @@ PLAYER_SYMBOLS = ['R', 'G', 'B', 'Y']
 # Tile datatype
 tile_dt = np.dtype({'names': ['path_type', 'orientation', 'treasure', 'base'],
                     'formats': [np.uint8, np.uint8, np.int8, np.int8]})
-tile_dt.__doc__ = """
+"""tile_dt.__doc__ = 
 The datatype for a Labyrinth tile.
 
 path_type is one of STRAIGHT_TYPE, CORNER_TYPE, T_TYPE or CROSSROADS_TYPE
