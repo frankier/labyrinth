@@ -334,7 +334,7 @@ def mk_initial_labyrinth_state(np_random, board, mobile_tiles, num_treasures, nu
     size, size = board.shape
     far = size - 1
     to_place = np_random.permutation(mobile_tiles)
-    shuffle_rotate_tiles(to_place)
+    shuffle_rotate_tiles(np_random, to_place)
     place_idx = 0
     for x, y in np.ndindex(board.shape):
         if x % 2 == 1 or y % 2 == 1:
@@ -384,7 +384,7 @@ class LabyrinthEnv(gym.Env):
 
         self.state = mk_initial_labyrinth_state(
             self.np_random, board, mobile_tiles, num_treasures,
-            num_players=len(self.opponent_policies) + 1)
+            num_players=len(self.opponents) + 1)
 
         # Possible TODO: Currently agent always moves first - would have to do
         # first opponent moves and check for termination here otherwise
@@ -476,7 +476,7 @@ from gym.envs.registration import register
 
 for board_size in [3, 5, 7]:
     register(
-        id='Labyrinth-{0}x{0}'.format(board_size),
+        id='Labyrinth{0}x{0}-v0'.format(board_size),
         entry_point='labyrinth:LabyrinthEnv',
         kwargs={
             'opponent': 'random',
@@ -490,4 +490,4 @@ if __name__ == '__main__':
     # This is just a test to show board generation is working
     size = int(sys.argv[1]) if len(sys.argv) > 1 else 7
     num_players = int(sys.argv[2]) if len(sys.argv) > 2 else 4
-    print(repr(mk_initial_labyrinth_state(*mk_box_contents(size), num_players=num_players)))
+    print(repr(mk_initial_labyrinth_state(np.random, *mk_box_contents(size), num_players=num_players)))
