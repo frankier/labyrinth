@@ -149,6 +149,10 @@ def mk_mobile_tiles(st_t, co_t, st_nt, co_nt, treasure_idx):
     return mobile_tiles
 
 
+def is_valid_board_size(size):
+    return size >= 3 and size % 2 == 1
+
+
 def mk_box_contents(size=7):
     """
     Make the contents of a (variation of a) Ravensburger Labyrinth box.
@@ -162,7 +166,7 @@ def mk_box_contents(size=7):
     mobile_tiles is a 1d array of tile_dt (a list of the movable tiles)
     num_treasures is the total number of treasures
     """
-    assert size >= 3 and size % 2 == 1
+    assert is_valid_board_size(size)
     board = np.ndarray((size, size), tile_dt)
     ssize = ssize_of_size(size)
     place_corners(board)
@@ -219,6 +223,16 @@ class LabyrinthState(object):
     def num_players(self):
         return len(self.players)
 
+    @property
+    def is_terminal(self):
+        # TODO: Return whether state is terminal or not
+        pass
+
+    @property
+    def winner(self):
+        # TODO: Return the winning player (if the state is terminal)
+        pass
+
     def act(self, action):
         '''
         Executes an action for the current player
@@ -226,9 +240,20 @@ class LabyrinthState(object):
         Returns:
             a new LabyrinthState with the new board and the player switched
         '''
-        # TODO
-        push, move = action
-        return LabyrinthState()
+        type = action['type']
+        if type != 'move':
+            # TODO: Increment player turn and return
+            return LabyrinthState() # TODO
+        # TODO: Change board according to move and then return state with new board and new player_turn
+        (push_side, push_row) = action['push']
+        (move_to_x, move_to_y) = action['move']
+        return LabyrinthState() # TODO
+
+    def observe(self, player):
+        # TODO: Should return player x's observation of the state here rather
+        # than the whole state (ie strictly we should delete information the
+        # agent can't see)
+        return self
 
     def __repr__(self):
         bits = []
@@ -292,13 +317,13 @@ def draw_board(board_state, player_positions, long_treasures=False):
         for y in range(rows))
 
 
-def shuffle_rotate_tiles(tiles):
+def shuffle_rotate_tiles(np_random, tiles):
     for i in np.ndindex(tiles.shape):
-        tiles[i]['orientation'] = random.randint(
+        tiles[i]['orientation'] = np_random.randint(
             0, NUM_ORIENTATIONS[tiles[i]['path_type']] - 1)
 
 
-def mk_initial_labyrinth_state(board, mobile_tiles, num_treasures, num_players=4):
+def mk_initial_labyrinth_state(np_random, board, mobile_tiles, num_treasures, num_players=4):
     """
     Return the starting Labyrinth state by placing all but one of mobile_tiles
     on a board, dealing the treasure cards to the players and placing their
@@ -308,7 +333,7 @@ def mk_initial_labyrinth_state(board, mobile_tiles, num_treasures, num_players=4
     board = np.copy(board)
     size, size = board.shape
     far = size - 1
-    to_place = np.random.permutation(mobile_tiles)
+    to_place = np_random.permutation(mobile_tiles)
     shuffle_rotate_tiles(to_place)
     place_idx = 0
     for x, y in np.ndindex(board.shape):
@@ -321,7 +346,7 @@ def mk_initial_labyrinth_state(board, mobile_tiles, num_treasures, num_players=4
     for pos in [0, 3, 1, 2][:num_players]:
         player_positions.append(((pos // 2) * far, (pos % 2) * far))
     player_cards = np.split(
-        np.random.permutation(num_treasures), 4)[:num_players]
+        np_random.permutation(num_treasures), 4)[:num_players]
     player_cards_found = [0] * num_players
     players = list(zip(player_positions, player_cards, player_cards_found))
     return LabyrinthState(board_state, turn, players, num_treasures)
@@ -329,13 +354,136 @@ def mk_initial_labyrinth_state(board, mobile_tiles, num_treasures, num_players=4
 
 # Adversary policies
 def make_random_policy(np_random):
-    def random_policy(curr_state, prev_state, prev_action):
+    def random_policy(curr_state):
         pass
-        # TODO
+        # TODO: Make a policy which makes random moves
     return random_policy
 
 
-# TODO: Write a LabyrinthEnv like GoEnv (see gym/envs/board_game/go.py)
+class LabyrinthEnv(gym.Env):
+    def __init__(self, board_size, opponents, illegal_mode_mode):
+        assert is_valid_board_size(size)
+        self.board_size = board_size
+
+        for opponent in opponents:
+            assert opponent in ['random']
+        self.opponent = opponents
+
+        assert illegal_move_mode in ['lose', 'raise']
+        self.illegal_move_mode = illegal_move_mode
+
+        # Properly initialised by _reset
+        self.state = None
+
+    def _seed(self, seed=None):
+        self.np_random, self.seed = seeding.np_random(seed)
+        return [self.seed]
+
+    def _reset(self):
+        board, mobile_tiles, num_treasures = mk_box_contents(self.board_size)
+
+        self.state = mk_initial_labyrinth_state(
+            self.np_random, board, mobile_tiles, num_treasures,
+            num_players=len(self.opponent_policies) + 1)
+
+        # Possible TODO: Currently agent always moves first - would have to do
+        # first opponent moves and check for termination here otherwise
+
+        return self.state.observe(0)
+
+    def _close(self):
+        # Cleanup everything initialised in _reset
+        self.state = None
+
+    def _render(self, mode="human", close=False):
+        if close:
+            return
+        outfile = StringIO() if mode == 'ansi' else sys.stdout
+        outfile.write(repr(self.state) + '\n')
+        return outfile
+
+    def _step(self, action):
+        assert self.state.player_turn == 0
+
+        # If already terminal, then don't do anything
+        if self.done:
+            return self.state.observe(0), 0., True, {'state': self.state}
+
+        # If resigned, then we're done
+        if action['type'] == 'resign':
+            self.done = True
+            return self.state.observe(0), -1., True, {'state': self.state}
+
+        assert action['type'] == 'move'
+
+        # Play
+        prev_state = self.state
+        try:
+            self.state = self.state.act(action)
+        except IllegalMove:
+            if self.illegal_move_mode == 'raise':
+                six.reraise(*sys.exc_info())
+            elif self.illegal_move_mode == 'lose':
+                # Automatic loss on illegal move
+                self.done = True
+                return self.state.observe(0), -1., True, {'state': self.state}
+
+        # Opponent play
+        for i, opponent in enumerate(self.opponents):
+            if not self.state.is_terminal:
+                self.state, opponent_resigned = self._exec_opponent_play(self.state)
+                # After opponent play, we should be back to the original color
+                assert self.state.color == self.player_color
+
+                # If the opponent resigns, then the agent wins
+                # TODO: Not true, should instead make player only win when all
+                # opponents resign
+                if opponent_resigned:
+                    self.done = True
+                    return self.state.board.encode(), 1., True, {'state': self.state}
+
+        # Reward: if nonterminal, then the reward is 0
+        if not self.state.board.is_terminal:
+            self.done = False
+            return self.state.observe(0), 0., False, {'state': self.state}
+
+        # We're in a terminal state. Reward is 1 if won, -1 if lost
+        assert self.state.board.is_terminal
+        self.done = True
+        return self.state.observe(0), 1 if self.state.board.winner == 0 else -1, True, {'state': self.state}
+
+    def _exec_opponent_play(self, curr_state):
+        assert curr_state.turn != 0
+        opponent_action = self.opponent_policies[curr_state.turn - 1](curr_state)
+        opponent_resigned = opponent_action['type'] == 'resign'
+        return curr_state.act(opponent_action), opponent_resigned
+
+    @property
+    def _state(self):
+        return self.state
+
+    def _reset_opponents(self, board):
+        self.opponent_policies = []
+        for opponent in self.opponents:
+            if opponent == 'random':
+                self.opponent_policies.append(make_random_policy(self.np_random))
+
+# Just do registration here for now - might be better somewhere else. Note this
+# must be after LabyrinthEnv since otherwise we will have import problems. This
+# is method may be hacky/fragile so should be fixed at some point.
+
+from gym.envs.registration import register
+
+for board_size in [3, 5, 7]:
+    register(
+        id='Labyrinth-{0}x{0}'.format(board_size),
+        entry_point='labyrinth:LabyrinthEnv',
+        kwargs={
+            'opponent': 'random',
+            'illegal_move_mode': 'lose',
+            'board_size': board_size,
+        },
+    )
 
 
 if __name__ == '__main__':
