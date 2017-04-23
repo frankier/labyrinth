@@ -9,6 +9,14 @@ $ pip install -r requirements.txt
 $ python3 labyrinth.py
 ```
 
+For every terminal you want to use to work on the project, you will have to rerun:
+
+```
+$ . ./venv/activate
+``
+
+to enter the virtualenv.
+
 You should see something like:
 
 ```
