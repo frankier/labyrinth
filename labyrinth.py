@@ -1,5 +1,7 @@
-from gym import error
+# -*- coding: utf-8 -*-
 
+from gym import error
+import os, sys
 import math
 import random
 import numpy as np
@@ -226,7 +228,7 @@ class LabyrinthState(object):
     @property
     def is_terminal(self):
         # TODO: Return whether state is terminal or not
-        pass
+        return self._is_terminal
 
     @property
     def winner(self):
