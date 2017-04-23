@@ -13,7 +13,7 @@ For every terminal you want to use to work on the project, you will have to reru
 
 ```
 $ . ./venv/activate
-``
+```
 
 to enter the virtualenv.
 
