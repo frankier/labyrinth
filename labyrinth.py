@@ -228,12 +228,21 @@ class LabyrinthState(object):
     @property
     def is_terminal(self):
         # TODO: Return whether state is terminal or not
-        return self._is_terminal
+        return any(self.player_has_won(player) for player in range(self.num_players))
+
 
     @property
     def winner(self):
         # TODO: Return the winning player (if the state is terminal)
-        pass
+        for player in range(self.num_players):
+            if player.is_terminal:
+                return self.players[player]
+    def player_has_won(self, player):
+        for player_idx, (pos, cards, found) in enumerate(players):
+            if found == 4:
+                return 1
+            else:
+                return 0
 
     def act(self, action):
         '''
@@ -245,11 +254,31 @@ class LabyrinthState(object):
         type = action['type']
         if type != 'move':
             # TODO: Increment player turn and return
-            return LabyrinthState() # TODO
+            self.player_turn += 1
+            return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO
         # TODO: Change board according to move and then return state with new board and new player_turn
         (push_side, push_row) = action['push']
-        (move_to_x, move_to_y) = action['move']
-        return LabyrinthState() # TODO
+        if push_side % 2 == 1 and push_row ==0:
+            for x, y in np.ndindex(board.shape):
+                self.board[x+1,y+1]= self.board[x,y]
+                self.board[push_side,push_row]= self.board_state[1]
+        elif push_side % 2 == 1 and push_row ==6:
+            for x, y in np.ndindex(board.shape):
+                self.board[x-1,y-1]= self.board[x,y]
+                self.board[push_side,push_row]= self.board_state[1]
+        elif push_side == 0 and push_row %2 == 1:
+            for x, y in np.ndindex(board.shape):
+                self.board[x+1,y+1]= self.board[x,y]
+                self.board[push_side,push_row]= self.board_state[1]
+        elif push_side ==6 and push_row %2 ==1:
+            for x, y in np.ndindex(board.shape):
+                self.board[x-1,y-1]= self.board[x,y]
+                self.board[push_side,push_row]= self.board_state[1]
+        #(move_to_x, move_to_y) = action['move']
+        self.players[self.player_turn][0] = move_to_x
+        self.players[self.player_turn][1] = move_to_y
+        self.player_turn += 1
+        return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO
 
     def observe(self, player):
         # TODO: Should return player x's observation of the state here rather
@@ -342,17 +371,24 @@ def mk_initial_labyrinth_state(np_random, board, mobile_tiles, num_treasures, nu
         if x % 2 == 1 or y % 2 == 1:
             board[x, y] = to_place[place_idx]
             place_idx += 1
+#    print (board)
+#    print ("\n")
+#    print (to_place[place_idx])
     board_state = (board, to_place[place_idx])
     turn = 0
     player_positions = []
     for pos in [0, 3, 1, 2][:num_players]:
         player_positions.append(((pos // 2) * far, (pos % 2) * far))
+#    print(player_positions)
+#    print("\n")
     player_cards = np.split(
         np_random.permutation(num_treasures), 4)[:num_players]
+#    print (player_cards)
+#    print (num_treasures)
     player_cards_found = [0] * num_players
+#    print (player_cards_found)
     players = list(zip(player_positions, player_cards, player_cards_found))
     return LabyrinthState(board_state, turn, players, num_treasures)
-
 
 # Adversary policies
 def make_random_policy(np_random):
@@ -488,6 +524,20 @@ for board_size in [3, 5, 7]:
     )
 
 
+def test_action():
+    np_random, seed = seeding.np_random(0)
+    board, mobile_tiles, num_treasures = mk_box_contents(7)
+
+    state = mk_initial_labyrinth_state(
+        np_random, board, mobile_tiles, num_treasures,
+        num_players=4)
+
+    action = {
+        'type': 'move',
+        'push': (0, 0),
+        'move': (2, 0),
+    }
+    state.act(action)
 if __name__ == '__main__':
     # This is just a test to show board generation is working
     size = int(sys.argv[1]) if len(sys.argv) > 1 else 7
