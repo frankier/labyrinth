@@ -260,19 +260,19 @@ class LabyrinthState(object):
         (push_side, push_row) = action['push']
         if push_side % 2 == 1 and push_row ==0:
             for x, y in np.ndindex(board.shape):
-                self.board[x+1,y+1]= self.board[x,y]
+                self.board[push_side,y+1]= self.board[push_side,y]
                 self.board[push_side,push_row]= self.board_state[1]
         elif push_side % 2 == 1 and push_row ==6:
             for x, y in np.ndindex(board.shape):
-                self.board[x-1,y-1]= self.board[x,y]
+                self.board[push_side,y-1]= self.board[push_side,y]
                 self.board[push_side,push_row]= self.board_state[1]
         elif push_side == 0 and push_row %2 == 1:
             for x, y in np.ndindex(board.shape):
-                self.board[x+1,y+1]= self.board[x,y]
+                self.board[x+1,push_row]= self.board[x,push_row]
                 self.board[push_side,push_row]= self.board_state[1]
         elif push_side ==6 and push_row %2 ==1:
             for x, y in np.ndindex(board.shape):
-                self.board[x-1,y-1]= self.board[x,y]
+                self.board[x-1,push_row]= self.board[x,push_row]
                 self.board[push_side,push_row]= self.board_state[1]
         #(move_to_x, move_to_y) = action['move']
         self.players[self.player_turn][0] = move_to_x
@@ -392,11 +392,7 @@ def mk_initial_labyrinth_state(np_random, board, mobile_tiles, num_treasures, nu
 
 # Adversary policies
 def make_random_policy(np_random):
-    def random_policy(curr_state):
-        pass
-        # TODO: Make a policy which makes random moves
-    return random_policy
-
+    pass
 
 class LabyrinthEnv(gym.Env):
     def __init__(self, board_size, opponents, illegal_mode_mode):
