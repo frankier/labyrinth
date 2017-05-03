@@ -195,14 +195,44 @@ def get_tile_passability(tile):
 def reach_test():
 	board = mk_box_contents()[0]
 	position = (1,1)
+	print(type(position))
+	print(type(board))
 	reachability = get_board_reachability(board, position)
 	print(reachability)
 
 def get_board_reachability(board, position):
     # Takes board, position
     # Returns boolean array of all squares reachable on board from position
-    # TODO
+	reachability = board.shape()
+	for x in range(0,len(board)):
+		for y in range(0,len(board[0])):
+			print("hi")
+	reachability[position[0]][position[1]] = True
+	location = board[position[0]][position[1]]
+	for x in range(0,3):
+		pos2 = get_neighbour_pos(board,location,x)
+		if (is_valid_pos(board,pos2)):
+			if (can_pass(x,location) and reachability[pos2[0]][pos2[1]]==False):
+				print("heya")
 	return False
+
+def is_valid_pos(board,pos):
+	# Note: Only works if board is square
+	return pos[0]<=0 and pos[0]>= len(board) and pos[1]<=0 and pos[1]>= len(board)
+	
+def get_neighbour_pos(board, pos, direction):
+	if (direction==0):
+		return board[pos[0]-1,pos[1]]
+	elif (direction==1):	
+		return board[pos[0],pos[1]+1]
+	elif(direction==2):
+		return board[pos[0]+1,pos[1]]
+	elif(direction==3):
+		return board[pos[0],pos[1]-1]
+					
+
+def can_pass(direction, pos1, pos2):	
+	return git_tile_passability(pos1)[direction+2%4]==True and get_tile_passability(post2)[direction] == True
 
 ## State
 class LabyrinthState(object):
