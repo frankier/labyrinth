@@ -198,8 +198,19 @@ def get_board_reachability(board, position):
     # Takes board, position
     # Returns boolean array of all squares reachable on board from position
     # TODO
-    pass
+	reachability = board.shape();
+	# TODO Set all elements in reachability to false
+	reachability[position[0]][position[1]]=True;
+	return get_reach_aux(reachability,board);
+	
 
+def get_reach_aux(reachability, board):
+	# find first true
+	# find a tile
+	# check if it's reachable.
+	# if it is recur from that tile
+	# find east tile
+	return reachability
 
 ## State
 class LabyrinthState(object):
