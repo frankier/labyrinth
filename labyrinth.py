@@ -195,17 +195,18 @@ def get_tile_passability(tile):
 
 
 def reach_test():
-	print(get_board_reachability(mk_box_contents()[0], (0, 0))
-
+	print(get_board_reachability(mk_box_contents()[0], (0, 0)))
+	pass	
+	
 def get_board_reachability(board, position):
     # Takes board, position
     # Returns boolean array of all squares reachable on board from position
     # TODO
-	reachability = board.shape();
-	for x in xrange(0,len(reachability):
-		for y in yrange(0,len(reachability[0]):
-			reachability[x][y]=False;
-	reachability[position[0]][position[1]]=True;
+	reachability = [[False,False,False],[False,False,False],[False,False,False]]
+	for x in range(0,len(reachability)):
+		for y in range(0,len(reachability[0])):
+			reachability[x][y]=False
+	reachability[position[0]][position[1]]=True
 	#return get_reach_aux(reachability,board);
 	return reachability
 	
