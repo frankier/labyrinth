@@ -414,9 +414,9 @@ def draw_board(board_state, player_positions, long_treasures=False):
     rows, cols = board_state.shape
     return "\n".join(
         " ".join(
-            draw_tile(board_state[x, y],
+            draw_tile(board_state[y, x],
                       long_treasures=long_treasures) +
-            draw_players((x, y), player_positions)
+            draw_players((y, x), player_positions)
             for x in range(cols))
         for y in range(rows))
 
