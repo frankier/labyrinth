@@ -1,5 +1,7 @@
-from gym import error
+# -*- coding: utf-8 -*-
 
+from gym import error
+import os, sys
 import math
 import random
 import numpy as np
@@ -9,6 +11,7 @@ from gym.utils import seeding
 from six import StringIO
 import sys
 import six
+import time
 
 ## Game data
 
@@ -29,10 +32,10 @@ PATH_SYMBOLS = [
     ("+"),
 ]
 TILE_PASSABILITIES = [
-    [(True, False, True, False)],
-    [(True, True, False, False)],
-    [(True, True, True, False)],
-    [(True, True, True, True)],
+    (True, False, True, False),
+    (True, True, False, False),
+    (True, True, True, False),
+    (True, True, True, True),
 ]
 
 # Player info
@@ -43,7 +46,9 @@ PLAYER_SYMBOLS = ['R', 'G', 'B', 'Y']
 # Tile datatype
 tile_dt = np.dtype({'names': ['path_type', 'orientation', 'treasure', 'base'],
                     'formats': [np.uint8, np.uint8, np.int8, np.int8]})
-"""tile_dt.__doc__ = 
+tile_dt.__doc__ = 
+=======
+"""
 The datatype for a Labyrinth tile.
 
 path_type is one of STRAIGHT_TYPE, CORNER_TYPE, T_TYPE or CROSSROADS_TYPE
@@ -149,6 +154,10 @@ def mk_mobile_tiles(st_t, co_t, st_nt, co_nt, treasure_idx):
     return mobile_tiles
 
 
+def is_valid_board_size(size):
+    return size >= 3 and size % 2 == 1
+
+
 def mk_box_contents(size=7):
     """
     Make the contents of a (variation of a) Ravensburger Labyrinth box.
@@ -162,7 +171,7 @@ def mk_box_contents(size=7):
     mobile_tiles is a 1d array of tile_dt (a list of the movable tiles)
     num_treasures is the total number of treasures
     """
-    assert size >= 3 and size % 2 == 1
+    assert is_valid_board_size(size)
     board = np.ndarray((size, size), tile_dt)
     ssize = ssize_of_size(size)
     place_corners(board)
@@ -185,15 +194,87 @@ def get_tile_passability(tile):
     Returns passability (north, east, south, west)
     """
     passability = TILE_PASSABILITIES[tile['path_type']]
-    return np.roll(passability, tile['orientation'])
+    passability = np.roll(passability, tile['orientation'])
+    #print(tile['path_type'], tile['orientation'], passability)
+    return passability
 
+def board_state_test():
+    np_random, seed = seeding.np_random(123)
+    board, mobile_tiles, num_treasures = mk_box_contents(7)
+    state = mk_initial_labyrinth_state(
+        np_random, board, mobile_tiles, num_treasures,
+        num_players=1)
+    #print (state)
+    #print ("===============================")
+    print (draw_board(state.board_state[0],((0,0))))
+    return
+
+def reach_test():
+    np_random, seed = seeding.np_random(0)
+    board, mobile_tiles, num_treasures = mk_box_contents(7)
+
+    state = mk_initial_labyrinth_state(
+        np_random, board, mobile_tiles, num_treasures,
+        num_players=4)
+    print(state)
+    print ("===============================")
+    print(get_board_reachability(state.board_state[0], (0,0)))
+    print(get_board_reachability(state.board_state[0], (6,0)))
+    print(get_board_reachability(state.board_state[0], (0,6)))
+    print(get_board_reachability(state.board_state[0], (6,6)))
+    print (draw_board(state.board_state[0],((0,0))))
+    return
 
 def get_board_reachability(board, position):
     # Takes board, position
     # Returns boolean array of all squares reachable on board from position
-    # TODO
-    pass
+    reachability = np.zeros(board.shape,dtype=bool)
+    reachability[position[0]][position[1]]=True
+    return get_reach_aux(reachability,board);
 
+def get_neighbour_coords(position):
+    return ((position[0]-1,position[1]),
+        (position[0],position[1]+1),
+        (position[0]+1,position[1]),
+        (position[0],position[1]-1))
+
+def can_pass(direction, tile_from, tile_to):
+    return get_tile_passability(tile_to)[(direction+2)%4] and get_tile_passability(tile_from)[direction]
+
+def get_reach_aux(reachability, board):
+    # Iterate through all cells and find all that are known to be reachable.
+#    print ("=========================")
+    previous = reachability
+    # Traverse over all tiles
+    for x in range(0,len(reachability)):
+        for y in range(0,len(reachability[0])):
+            # If that tile is reachable
+            if (reachability[x][y]==True):
+                neighbours = get_neighbour_coords((x,y))
+                for z in range(0,3):
+                    neighbour = neighbours[z]
+                    if is_inside_board(neighbour,board):
+                        print ("Tile_from_coords", (x,y))
+                        print ("Tile_from", board[x][y])
+                        print ("Tile_from_passability", get_tile_passability(board[x][y]))
+                        print ("Tile_to_coords", neighbour)
+                        print ("Tile_to", board[neighbour[0]][neighbour[1]])
+                        print ("Tile_to_passability", get_tile_passability(board[neighbour[0]][neighbour[1]]))
+                        print ("=========================================")
+                        if (can_pass(z,board[x][y],board[neighbour[0]][neighbour[1]])):
+                            reachability[neighbours[z][0]][neighbours[z][1]]=True
+        #            print (reachability)
+        #            print ("--------------")
+                #    time.sleep(1)
+    change = not np.array_equal(previous,reachability)
+    print (change)
+    if (change):
+        return get_reach_aux(reachability,board)
+    else:
+        return reachability
+
+def is_inside_board(position, board):
+    return position[0]>=0 and position[1]>=0 and position[0]<len(board) and position[1]<len(board)
 
 ## State
 class LabyrinthState(object):
@@ -219,6 +300,25 @@ class LabyrinthState(object):
     def num_players(self):
         return len(self.players)
 
+    @property
+    def is_terminal(self):
+        # TODO: Return whether state is terminal or not
+        return any(self.player_has_won(player) for player in range(self.num_players))
+
+
+    @property
+    def winner(self):
+        # TODO: Return the winning player (if the state is terminal)
+        for player in range(self.num_players):
+            if player.is_terminal:
+                return self.players[player]
+    def player_has_won(self, player):
+        for player_idx, (pos, cards, found) in enumerate(players):
+            if found == 4:
+                return 1
+            else:
+                return 0
+
     def act(self, action):
         '''
         Executes an action for the current player
@@ -226,9 +326,40 @@ class LabyrinthState(object):
         Returns:
             a new LabyrinthState with the new board and the player switched
         '''
-        # TODO
-        push, move = action
-        return LabyrinthState()
+        type = action['type']
+        if type != 'move':
+            # TODO: Increment player turn and return
+            self.player_turn += 1
+            return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO
+        # TODO: Change board according to move and then return state with new board and new player_turn
+        (push_side, push_row) = action['push']
+        if push_side % 2 == 1 and push_row ==0:
+            for x, y in np.ndindex(board.shape):
+                self.board[push_side,y+1]= self.board[push_side,y]
+                self.board[push_side,push_row]= self.board_state[1]
+        elif push_side % 2 == 1 and push_row ==6:
+            for x, y in np.ndindex(board.shape):
+                self.board[push_side,y-1]= self.board[push_side,y]
+                self.board[push_side,push_row]= self.board_state[1]
+        elif push_side == 0 and push_row %2 == 1:
+            for x, y in np.ndindex(board.shape):
+                self.board[x+1,push_row]= self.board[x,push_row]
+                self.board[push_side,push_row]= self.board_state[1]
+        elif push_side ==6 and push_row %2 ==1:
+            for x, y in np.ndindex(board.shape):
+                self.board[x-1,push_row]= self.board[x,push_row]
+                self.board[push_side,push_row]= self.board_state[1]
+        #(move_to_x, move_to_y) = action['move']
+        self.players[self.player_turn][0] = move_to_x
+        self.players[self.player_turn][1] = move_to_y
+        self.player_turn += 1
+        return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO
+
+    def observe(self, player):
+        # TODO: Should return player x's observation of the state here rather
+        # than the whole state (ie strictly we should delete information the
+        # agent can't see)
+        return self
 
     def __repr__(self):
         bits = []
@@ -285,20 +416,20 @@ def draw_board(board_state, player_positions, long_treasures=False):
     rows, cols = board_state.shape
     return "\n".join(
         " ".join(
-            draw_tile(board_state[x, y],
+            draw_tile(board_state[y, x],
                       long_treasures=long_treasures) +
-            draw_players((x, y), player_positions)
+            draw_players((y, x), player_positions)
             for x in range(cols))
         for y in range(rows))
 
 
-def shuffle_rotate_tiles(tiles):
+def shuffle_rotate_tiles(np_random, tiles):
     for i in np.ndindex(tiles.shape):
-        tiles[i]['orientation'] = random.randint(
+        tiles[i]['orientation'] = np_random.randint(
             0, NUM_ORIENTATIONS[tiles[i]['path_type']] - 1)
 
 
-def mk_initial_labyrinth_state(board, mobile_tiles, num_treasures, num_players=4):
+def mk_initial_labyrinth_state(np_random, board, mobile_tiles, num_treasures, num_players=4):
     """
     Return the starting Labyrinth state by placing all but one of mobile_tiles
     on a board, dealing the treasure cards to the players and placing their
@@ -308,38 +439,178 @@ def mk_initial_labyrinth_state(board, mobile_tiles, num_treasures, num_players=4
     board = np.copy(board)
     size, size = board.shape
     far = size - 1
-    to_place = np.random.permutation(mobile_tiles)
-    shuffle_rotate_tiles(to_place)
+    to_place = np_random.permutation(mobile_tiles)
+    shuffle_rotate_tiles(np_random, to_place)
     place_idx = 0
     for x, y in np.ndindex(board.shape):
         if x % 2 == 1 or y % 2 == 1:
             board[x, y] = to_place[place_idx]
             place_idx += 1
+#    print (board)
+#    print ("\n")
+#    print (to_place[place_idx])
     board_state = (board, to_place[place_idx])
     turn = 0
     player_positions = []
     for pos in [0, 3, 1, 2][:num_players]:
         player_positions.append(((pos // 2) * far, (pos % 2) * far))
+#    print(player_positions)
+#    print("\n")
     player_cards = np.split(
-        np.random.permutation(num_treasures), 4)[:num_players]
+        np_random.permutation(num_treasures), 4)[:num_players]
+#    print (player_cards)
+#    print (num_treasures)
     player_cards_found = [0] * num_players
+#    print (player_cards_found)
     players = list(zip(player_positions, player_cards, player_cards_found))
     return LabyrinthState(board_state, turn, players, num_treasures)
 
-
 # Adversary policies
 def make_random_policy(np_random):
-    def random_policy(curr_state, prev_state, prev_action):
-        pass
-        # TODO
-    return random_policy
+    pass
+
+class LabyrinthEnv(gym.Env):
+    def __init__(self, board_size, opponents, illegal_mode_mode):
+        assert is_valid_board_size(size)
+        self.board_size = board_size
+
+        for opponent in opponents:
+            assert opponent in ['random']
+        self.opponent = opponents
+
+        assert illegal_move_mode in ['lose', 'raise']
+        self.illegal_move_mode = illegal_move_mode
+
+        # Properly initialised by _reset
+        self.state = None
+
+    def _seed(self, seed=None):
+        self.np_random, self.seed = seeding.np_random(seed)
+        return [self.seed]
+
+    def _reset(self):
+        board, mobile_tiles, num_treasures = mk_box_contents(self.board_size)
+
+        self.state = mk_initial_labyrinth_state(
+            self.np_random, board, mobile_tiles, num_treasures,
+            num_players=len(self.opponents) + 1)
+
+        # Possible TODO: Currently agent always moves first - would have to do
+        # first opponent moves and check for termination here otherwise
+
+        return self.state.observe(0)
+
+    def _close(self):
+        # Cleanup everything initialised in _reset
+        self.state = None
+
+    def _render(self, mode="human", close=False):
+        if close:
+            return
+        outfile = StringIO() if mode == 'ansi' else sys.stdout
+        outfile.write(repr(self.state) + '\n')
+        return outfile
+
+    def _step(self, action):
+        assert self.state.player_turn == 0
+
+        # If already terminal, then don't do anything
+        if self.done:
+            return self.state.observe(0), 0., True, {'state': self.state}
+
+        # If resigned, then we're done
+        if action['type'] == 'resign':
+            self.done = True
+            return self.state.observe(0), -1., True, {'state': self.state}
+
+        assert action['type'] == 'move'
+
+        # Play
+        prev_state = self.state
+        try:
+            self.state = self.state.act(action)
+        except IllegalMove:
+            if self.illegal_move_mode == 'raise':
+                six.reraise(*sys.exc_info())
+            elif self.illegal_move_mode == 'lose':
+                # Automatic loss on illegal move
+                self.done = True
+                return self.state.observe(0), -1., True, {'state': self.state}
+
+        # Opponent play
+        for i, opponent in enumerate(self.opponents):
+            if not self.state.is_terminal:
+                self.state, opponent_resigned = self._exec_opponent_play(self.state)
+                # After opponent play, we should be back to the original color
+                assert self.state.color == self.player_color
+
+                # If the opponent resigns, then the agent wins
+                # TODO: Not true, should instead make player only win when all
+                # opponents resign
+                if opponent_resigned:
+                    self.done = True
+                    return self.state.board.encode(), 1., True, {'state': self.state}
+
+        # Reward: if nonterminal, then the reward is 0
+        if not self.state.board.is_terminal:
+            self.done = False
+            return self.state.observe(0), 0., False, {'state': self.state}
+
+        # We're in a terminal state. Reward is 1 if won, -1 if lost
+        assert self.state.board.is_terminal
+        self.done = True
+        return self.state.observe(0), 1 if self.state.board.winner == 0 else -1, True, {'state': self.state}
+
+    def _exec_opponent_play(self, curr_state):
+        assert curr_state.turn != 0
+        opponent_action = self.opponent_policies[curr_state.turn - 1](curr_state)
+        opponent_resigned = opponent_action['type'] == 'resign'
+        return curr_state.act(opponent_action), opponent_resigned
+
+    @property
+    def _state(self):
+        return self.state
+
+    def _reset_opponents(self, board):
+        self.opponent_policies = []
+        for opponent in self.opponents:
+            if opponent == 'random':
+                self.opponent_policies.append(make_random_policy(self.np_random))
+
+# Just do registration here for now - might be better somewhere else. Note this
+# must be after LabyrinthEnv since otherwise we will have import problems. This
+# is method may be hacky/fragile so should be fixed at some point.
+
+from gym.envs.registration import register
+
+for board_size in [3, 5, 7]:
+    register(
+        id='Labyrinth{0}x{0}-v0'.format(board_size),
+        entry_point='labyrinth:LabyrinthEnv',
+        kwargs={
+            'opponent': 'random',
+            'illegal_move_mode': 'lose',
+            'board_size': board_size,
+        },
+    )
 
 
-# TODO: Write a LabyrinthEnv like GoEnv (see gym/envs/board_game/go.py)
+def test_action():
+    np_random, seed = seeding.np_random(0)
+    board, mobile_tiles, num_treasures = mk_box_contents(7)
 
+    state = mk_initial_labyrinth_state(
+        np_random, board, mobile_tiles, num_treasures,
+        num_players=4)
 
+    action = {
+        'type': 'move',
+        'push': (0, 0),
+        'move': (2, 0),
+    }
+    state.act(action)
 if __name__ == '__main__':
     # This is just a test to show board generation is working
     size = int(sys.argv[1]) if len(sys.argv) > 1 else 7
     num_players = int(sys.argv[2]) if len(sys.argv) > 2 else 4
-    print(repr(mk_initial_labyrinth_state(*mk_box_contents(size), num_players=num_players)))
+    print(repr(mk_initial_labyrinth_state(np.random, *mk_box_contents(size), num_players=num_players)))
