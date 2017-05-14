@@ -202,7 +202,7 @@ def board_state_test():
     state = mk_initial_labyrinth_state(
         np_random, board, mobile_tiles, num_treasures,
         num_players=1)
-    print (state.board_state)
+    print ("jksladjklasjdla asd jklasdj lka\n\n")
     print (draw_board(state.board_state[0],((0,0))))
     return
 
