@@ -44,8 +44,7 @@ PLAYER_SYMBOLS = ['R', 'G', 'B', 'Y']
 # Tile datatype
 tile_dt = np.dtype({'names': ['path_type', 'orientation', 'treasure', 'base'],
                     'formats': [np.uint8, np.uint8, np.int8, np.int8]})
-tile_dt.__doc__ =
-=======
+
 """
 The datatype for a Labyrinth tile.
 
@@ -335,7 +334,7 @@ class LabyrinthState(object):
 
         (move_to_x, move_to_y) = action['move']
         new_position = (move_to_x, move_to_y)
-        #assert get_board_reachability(self.board,(move_to_x, move_to_y))
+        #assert get_board_reachability(self.board_state[0],(move_to_x, move_to_y))
         self.players[self.player_turn]=list(self.players[self.player_turn])
         self.players[self.player_turn][0] = new_position
         self.players[self.player_turn] = tuple(self.players[self.player_turn])
