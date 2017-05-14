@@ -260,91 +260,33 @@ class LabyrinthState(object):
             return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO
         # TODO: Change board according to move and then return state with new board and new player_turn
         (push_side, push_row) = action['push']
-        #print (self.board_state[0].shape)
-        #print (np.ndindex(self.board_state[0].shape))
-        #for x,y in (np.ndindex(self.board_state[0].shape)):
-        #    if x==1 and y <6:
-        #        print (y)
-        #        y+=1
+
+        push_row = 2*push_row +1
         board = np.rot90(self.board_state[0], push_side)
-        print (board)
         a=np.append(board[:,push_row],self.board_state[1])
-        #print (self.board_state[1])
-        #print (a)
+
         a = np.roll(a,1)
-        #print (a)
         new_spare_tile = a[-1]
 
         a=a[:-1]
         board[:,push_row] = a
 
         self.board_state = (board, new_spare_tile)
-        print(self.board_state)
 
 
 
 
-        """if push_side % 2 == 1 and push_row ==0:
-            b = self.board_state[0][push_side]
-
-            print (b[0])
-
-            for y in range(6):
-                m = self.board_state[0][push_side, 6]
-                #print (self.board_state[0][push_side, y])
-
-
-
-                #print (self.board_state[0][push_side, y])
-                #b = self.board_state[0][push_side, y]
-                #print (b)
-                self.board_state[0][push_side, y+1] = b[y]
-                #print (b)
-                self.board_state[0][push_side, push_row] = self.board_state[1]
-                #print (self.board_state[0][push_side, y+1])
-                y+=1
-
-                self.board_state=list(self.board_state)
-                self.board_state[1] = m
-        elif push_side % 2 == 1 and push_row ==6:
-            for x,y in np.ndindex(board.shape):
-                m = self.board_state[0][push_side, 0]
-                if( x== push_side and y>0):
-                    self.board_state[0][push_side, y-1]= self.board_state[0][push_side, y]
-                    self.board_state[0][push_side, push_row]= self.board_state[1]
-                    y+=1
-                self.board_state[1]=list(self.board_state[1])
-                self.board_state[1] = m
-        elif push_side == 0 and push_row % 2 == 1:
-            for x,y in np.ndindex(board.shape):
-                m = self.board_state[0][6, push_row]
-                if(x<6 and y == push_row):
-                    self.board_state[0][x+1, push_row]= self.board_state[0][x, push_row]
-                    self.board_state[0][push_side, push_row]= self.board_state[1]
-                    x+=1
-                self.board_state[1]=list(self.board_state[1])
-                self.board_state[1] = m
-        elif push_side ==6 and push_row %2 ==1:
-            for x,y in np.ndindex(board.shape):
-                m = self.board_state[0][0, push_row]
-                if(x>1 and y == push_row):
-                    self.board_state[0][x-1, push_row]= self.board_state[0][x, push_row]
-                    self.board_state[0][push_side, push_row]= self.board_state[1]
-                    x+=1
-                self.board_state[1]=list(self.board_state[1])
-                self.board_state[1] = m
 
 
         (move_to_x, move_to_y) = action['move']
-        #assert get_board_reachability(self.board,(move_to_x, move_to_y))
-        #self.player_positions[self.player_turn] = ((move_to_x, move_to_y))
-        self.players=list(self.players)
-        self.players[self.player_turn] = list(self.players[self.player_turn])
+        new_position = (move_to_x, move_to_y)
 
-        self.players[self.player_turn][0] = ((move_to_x, move_to_y))
-        #self.players[self.player_turn][0][1] = move_to_y
+        #assert get_board_reachability(self.board,(move_to_x, move_to_y))
+        self.players[self.player_turn]=list(self.players[self.player_turn])
+
+        self.players[self.player_turn][0] = new_position
+        self.players[self.player_turn] = tuple(self.players[self.player_turn])
         self.player_turn += 1
-        print (self.board_state)
         return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO"""
 
     def observe(self, player):
