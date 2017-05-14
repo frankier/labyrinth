@@ -260,30 +260,20 @@ class LabyrinthState(object):
             return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO
         # TODO: Change board according to move and then return state with new board and new player_turn
         (push_side, push_row) = action['push']
-
         push_row = 2*push_row +1
         board = np.rot90(self.board_state[0], push_side)
         a=np.append(board[:,push_row],self.board_state[1])
-
         a = np.roll(a,1)
         new_spare_tile = a[-1]
-
         a=a[:-1]
         board[:,push_row] = a
-
         self.board_state = (board, new_spare_tile)
-
-
-
-
 
 
         (move_to_x, move_to_y) = action['move']
         new_position = (move_to_x, move_to_y)
-
         #assert get_board_reachability(self.board,(move_to_x, move_to_y))
         self.players[self.player_turn]=list(self.players[self.player_turn])
-
         self.players[self.player_turn][0] = new_position
         self.players[self.player_turn] = tuple(self.players[self.player_turn])
         self.player_turn += 1
