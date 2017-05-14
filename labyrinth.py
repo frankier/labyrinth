@@ -44,6 +44,8 @@ PLAYER_SYMBOLS = ['R', 'G', 'B', 'Y']
 # Tile datatype
 tile_dt = np.dtype({'names': ['path_type', 'orientation', 'treasure', 'base'],
                     'formats': [np.uint8, np.uint8, np.int8, np.int8]})
+tile_dt.__doc__ =
+=======
 """
 The datatype for a Labyrinth tile.
 
@@ -197,8 +199,69 @@ def get_tile_passability(tile):
 def get_board_reachability(board, position):
     # Takes board, position
     # Returns boolean array of all squares reachable on board from position
-    # TODO
-    pass
+
+    state = mk_initial_labyrinth_state(
+        np_random, board, mobile_tiles, num_treasures,
+        num_players=4)
+    print(state)
+    print ("===============================")
+    print(get_board_reachability(state.board_state[0], (0,0)))
+    print(get_board_reachability(state.board_state[0], (6,0)))
+    print(get_board_reachability(state.board_state[0], (0,6)))
+    print(get_board_reachability(state.board_state[0], (6,6)))
+    print (draw_board(state.board_state[0],((0,0))))
+    return
+
+def get_board_reachability(board, position):
+    # Takes board, position
+    # Returns boolean array of all squares reachable on board from position
+    reachability = np.zeros(board.shape,dtype=bool)
+    reachability[position[0]][position[1]]=True
+    return get_reach_aux(reachability,board);
+
+def get_neighbour_coords(position):
+    return ((position[0]-1,position[1]),
+        (position[0],position[1]+1),
+        (position[0]+1,position[1]),
+        (position[0],position[1]-1))
+
+def can_pass(direction, tile_from, tile_to):
+    return get_tile_passability(tile_to)[(direction+2)%4] and get_tile_passability(tile_from)[direction]
+
+def get_reach_aux(reachability, board):
+    # Iterate through all cells and find all that are known to be reachable.
+#    print ("=========================")
+    previous = reachability
+    # Traverse over all tiles
+    for x in range(0,len(reachability)):
+        for y in range(0,len(reachability[0])):
+            # If that tile is reachable
+            if (reachability[x][y]==True):
+                neighbours = get_neighbour_coords((x,y))
+                for z in range(0,3):
+                    neighbour = neighbours[z]
+                    if is_inside_board(neighbour,board):
+                        print ("Tile_from_coords", (x,y))
+                        print ("Tile_from", board[x][y])
+                        print ("Tile_from_passability", get_tile_passability(board[x][y]))
+                        print ("Tile_to_coords", neighbour)
+                        print ("Tile_to", board[neighbour[0]][neighbour[1]])
+                        print ("Tile_to_passability", get_tile_passability(board[neighbour[0]][neighbour[1]]))
+                        print ("=========================================")
+                        if (can_pass(z,board[x][y],board[neighbour[0]][neighbour[1]])):
+                            reachability[neighbours[z][0]][neighbours[z][1]]=True
+        #            print (reachability)
+        #            print ("--------------")
+                #    time.sleep(1)
+    change = not np.array_equal(previous,reachability)
+    print (change)
+    if (change):
+        return get_reach_aux(reachability,board)
+    else:
+        return reachability
+
+def is_inside_board(position, board):
+    return position[0]>=0 and position[1]>=0 and position[0]<len(board) and position[1]<len(board)
 
 ## State
 class LabyrinthState(object):
