@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 from gym import error
 import os, sys
 import math
@@ -11,7 +10,6 @@ from gym.utils import seeding
 from six import StringIO
 import sys
 import six
-import time
 
 ## Game data
 
@@ -32,10 +30,10 @@ PATH_SYMBOLS = [
     ("+"),
 ]
 TILE_PASSABILITIES = [
-    (True, False, True, False),
-    (True, True, False, False),
-    (True, True, True, False),
-    (True, True, True, True),
+    [(True, False, True, False)],
+    [(True, True, False, False)],
+    [(True, True, True, False)],
+    [(True, True, True, True)],
 ]
 
 # Player info
@@ -46,6 +44,7 @@ PLAYER_SYMBOLS = ['R', 'G', 'B', 'Y']
 # Tile datatype
 tile_dt = np.dtype({'names': ['path_type', 'orientation', 'treasure', 'base'],
                     'formats': [np.uint8, np.uint8, np.int8, np.int8]})
+
 """
 The datatype for a Labyrinth tile.
 
@@ -181,6 +180,7 @@ def mk_box_contents(size=7):
     st_nt = math.floor(nt_tiles * 3 / 5)
     co_nt = nt_tiles - st_nt
     mobile_tiles = mk_mobile_tiles(hm_treasures, hm_treasures, st_nt, co_nt, treasure_idx)
+    #print (board.shape)
     return (board, mobile_tiles, treasure_idx + m_treasures)
 
 
@@ -192,38 +192,26 @@ def get_tile_passability(tile):
     Returns passability (north, east, south, west)
     """
     passability = TILE_PASSABILITIES[tile['path_type']]
-    passability = np.roll(passability, tile['orientation'])
-    #print(tile['path_type'], tile['orientation'], passability)
-    return passability
+    return np.roll(passability, tile['orientation'])
 
-def board_state_test():
-    np_random, seed = seeding.np_random(123)
-    board, mobile_tiles, num_treasures = mk_box_contents(7)
-    state = mk_initial_labyrinth_state(
-        np_random, board, mobile_tiles, num_treasures,
-        num_players=1)
-    #print (state)
-    #print ("===============================")
-    print (draw_board(state.board_state[0],((0,0))))
-    return
 
-def reach_test():
-    np_random, seed = seeding.np_random(0)
-    board, mobile_tiles, num_treasures = mk_box_contents(7)
+def get_board_reachability(board, position):
+    # Takes board, position
+    # Returns boolean array of all squares reachable on board from position
 
     state = mk_initial_labyrinth_state(
         np_random, board, mobile_tiles, num_treasures,
         num_players=4)
     print(get_board_reachability(state.board_state[0], (0,0)))
     return
- 
+
 def get_board_reachability(board, position):
     # Takes board, position
     # Returns boolean array of all squares reachable on board from position
     reachability = np.zeros(board.shape,dtype=bool)
     reachability[position[0]][position[1]]=True
     return get_reach_aux(reachability,board);
-    
+
 def get_neighbour_coords(position):
     return ((position[0]-1,position[1]),
         (position[0],position[1]+1),
@@ -294,14 +282,15 @@ class LabyrinthState(object):
     def winner(self):
         # TODO: Return the winning player (if the state is terminal)
         for player in range(self.num_players):
-            if player.is_terminal:
-                return self.players[player]
+            if self.player_has_won(player):
+                return player
+
     def player_has_won(self, player):
-        for player_idx, (pos, cards, found) in enumerate(players):
-            if found == 4:
-                return 1
-            else:
-                return 0
+        (pos, cards, found) = self.players[player]
+        if found == len(cards):
+            return 1
+        else:
+            return 0
 
     def act(self, action):
         '''
@@ -311,33 +300,32 @@ class LabyrinthState(object):
             a new LabyrinthState with the new board and the player switched
         '''
         type = action['type']
+        #print (self.board_state)
+
         if type != 'move':
             # TODO: Increment player turn and return
             self.player_turn += 1
             return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO
         # TODO: Change board according to move and then return state with new board and new player_turn
         (push_side, push_row) = action['push']
-        if push_side % 2 == 1 and push_row ==0:
-            for x, y in np.ndindex(board.shape):
-                self.board[push_side,y+1]= self.board[push_side,y]
-                self.board[push_side,push_row]= self.board_state[1]
-        elif push_side % 2 == 1 and push_row ==6:
-            for x, y in np.ndindex(board.shape):
-                self.board[push_side,y-1]= self.board[push_side,y]
-                self.board[push_side,push_row]= self.board_state[1]
-        elif push_side == 0 and push_row %2 == 1:
-            for x, y in np.ndindex(board.shape):
-                self.board[x+1,push_row]= self.board[x,push_row]
-                self.board[push_side,push_row]= self.board_state[1]
-        elif push_side ==6 and push_row %2 ==1:
-            for x, y in np.ndindex(board.shape):
-                self.board[x-1,push_row]= self.board[x,push_row]
-                self.board[push_side,push_row]= self.board_state[1]
-        #(move_to_x, move_to_y) = action['move']
-        self.players[self.player_turn][0] = move_to_x
-        self.players[self.player_turn][1] = move_to_y
+        push_row = 2*push_row +1
+        board = np.rot90(self.board_state[0], push_side)
+        a=np.append(board[:,push_row],self.board_state[1])
+        a = np.roll(a,1)
+        new_spare_tile = a[-1]
+        a=a[:-1]
+        board[:,push_row] = a
+        self.board_state = (board, new_spare_tile)
+
+
+        (move_to_x, move_to_y) = action['move']
+        new_position = (move_to_x, move_to_y)
+        #assert get_board_reachability(self.board_state[0],(move_to_x, move_to_y))
+        self.players[self.player_turn]=list(self.players[self.player_turn])
+        self.players[self.player_turn][0] = new_position
+        self.players[self.player_turn] = tuple(self.players[self.player_turn])
         self.player_turn += 1
-        return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO
+        return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO"""
 
     def observe(self, player):
         # TODO: Should return player x's observation of the state here rather
@@ -400,9 +388,9 @@ def draw_board(board_state, player_positions, long_treasures=False):
     rows, cols = board_state.shape
     return "\n".join(
         " ".join(
-            draw_tile(board_state[y, x],
+            draw_tile(board_state[x, y],
                       long_treasures=long_treasures) +
-            draw_players((y, x), player_positions)
+            draw_players((x, y), player_positions)
             for x in range(cols))
         for y in range(rows))
 
@@ -446,7 +434,13 @@ def mk_initial_labyrinth_state(np_random, board, mobile_tiles, num_treasures, nu
 #    print (num_treasures)
     player_cards_found = [0] * num_players
 #    print (player_cards_found)
+
     players = list(zip(player_positions, player_cards, player_cards_found))
+#    print (players)
+
+    #print (turn)
+    #print (num_treasures)
+    #print("\n")
     return LabyrinthState(board_state, turn, players, num_treasures)
 
 # Adversary policies
@@ -593,6 +587,9 @@ def test_action():
         'move': (2, 0),
     }
     state.act(action)
+
+test_action()
+    #print (board)
 if __name__ == '__main__':
     # This is just a test to show board generation is working
     size = int(sys.argv[1]) if len(sys.argv) > 1 else 7
