@@ -214,13 +214,7 @@ def reach_test():
     state = mk_initial_labyrinth_state(
         np_random, board, mobile_tiles, num_treasures,
         num_players=4)
-    print(state)
-    print ("===============================")
     print(get_board_reachability(state.board_state[0], (0,0)))
-    print(get_board_reachability(state.board_state[0], (6,0)))
-    print(get_board_reachability(state.board_state[0], (0,6)))
-    print(get_board_reachability(state.board_state[0], (6,6)))
-    print (draw_board(state.board_state[0],((0,0))))
     return
  
 def get_board_reachability(board, position):
@@ -249,23 +243,15 @@ def get_reach_aux(reachability, board):
             # If that tile is reachable
             if (reachability[x][y]==True):
                 neighbours = get_neighbour_coords((x,y))
+				# then traverse over all neighbours. z = 0 means north neighbour. z = 1 means east neighbour etc. 
                 for z in range(0,3):
                     neighbour = neighbours[z]
+					# The neighbour might not actually exist. test if it's inside the board.
                     if is_inside_board(neighbour,board):
-                        print ("Tile_from_coords", (x,y))
-                        print ("Tile_from", board[x][y])
-                        print ("Tile_from_passability", get_tile_passability(board[x][y]))
-                        print ("Tile_to_coords", neighbour)
-                        print ("Tile_to", board[neighbour[0]][neighbour[1]])
-                        print ("Tile_to_passability", get_tile_passability(board[neighbour[0]][neighbour[1]]))
-                        print ("=========================================")
                         if (can_pass(z,board[x][y],board[neighbour[0]][neighbour[1]])):
                             reachability[neighbours[z][0]][neighbours[z][1]]=True
-        #            print (reachability)
-        #            print ("--------------")
-                #    time.sleep(1)
+	# If there was a change repeat. Otherwise it's done
     change = not np.array_equal(previous,reachability)
-    print (change)
     if (change):
         return get_reach_aux(reachability,board)
     else:
