@@ -88,7 +88,7 @@ def place_static(board, players=4):
         tile = (CROSSROADS_TYPE, 0, -1, -1)
         board[ssize - 1, ssize - 1] = tile
     board_view = board
-    treasure_sides = range(0, 4, int(4 / players))
+    treasure_sides = range(0, 4, 4 // players)
     for orientation in range(4):
         start_pos = 1
         end_pos = ssize - 1
