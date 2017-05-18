@@ -240,7 +240,6 @@ def can_pass(direction, tile_from, tile_to):
 
 def get_reach_aux(reachability, board):
     # Iterate through all cells and find all that are known to be reachable.
-#    print ("=========================")
     previous = reachability
     # Traverse over all tiles
     for x in range(0,len(reachability)):

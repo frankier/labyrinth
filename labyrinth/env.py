@@ -70,21 +70,12 @@ class LabyrinthState(object):
         Returns:
             a new LabyrinthState with the new board and the player switched
         '''
-        print(action)
-        #type = action['type']
-        #print (self.board_state)
-
-        #if type != 'move':
-            #self.next_turn()
-            #return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO
-
         (push, move) = action
         new_board_state = do_push(self.board_state, push)
 
         current_position = self.current_position()
         (move_to_x, move_to_y) = move
         new_position = (move_to_x, move_to_y)
-        print(new_board_state)
         if not get_board_reachability(new_board_state[0],current_position)[new_position]:
             raise IllegalMove()
         self.board_state = new_board_state
@@ -185,29 +176,17 @@ def mk_initial_labyrinth_state(np_random, board, mobile_tiles, num_treasures, nu
         if x % 2 == 1 or y % 2 == 1:
             board[x, y] = to_place[place_idx]
             place_idx += 1
-#    print (board)
-#    print ("\n")
-#    print (to_place[place_idx])
     board_state = (board, to_place[place_idx])
     turn = 0
     player_positions = []
     for pos in [0, 3, 1, 2][:num_players]:
         player_positions.append(((pos // 2) * far, (pos % 2) * far))
-#    print(player_positions)
-#    print("\n")
     player_cards = np.split(
         np_random.permutation(num_treasures), num_players)
-#    print (player_cards)
-#    print (num_treasures)
     player_cards_found = [0] * num_players
-#    print (player_cards_found)
 
     players = list(zip(player_positions, player_cards, player_cards_found))
-#    print (players)
 
-    #print (turn)
-    #print (num_treasures)
-    #print("\n")
     return LabyrinthState(board_state, turn, players, num_treasures)
 
 # Adversary policies
@@ -342,4 +321,3 @@ class LabyrinthEnv(gym.Env):
             move = self.state.valid_moves(push)
             actions.append((push, move))
         return actions
-    #print (board)
