@@ -25,6 +25,7 @@ TILE_PASSABILITIES = [
     (True, True, True, False),
     (True, True, True, True),
 ]
+VALID_PLAYERS = [1, 2, 4]
 
 # Player info
 PLAYER_COLORS = ['Red', 'Green', 'Blue', 'Yellow']
@@ -75,30 +76,31 @@ def place_corners(board):
         board_view = np.rot90(board_view, 3)
 
 
-def place_static(board, center_treasure=False):
+def place_static(board, players=4):
     """
     Place all static tiles apart from the corner tiles on a board.
     """
+    assert is_valid_players(players)
     treasure_idx = 0
     size, size = board.shape
     ssize = static_size(size)
     if ssize % 2 == 1:
-        if center_treasure:
-            tile = (CROSSROADS_TYPE, 0, treasure_idx, -1)
-            treasure_idx += 1
-        else:
-            tile = (CROSSROADS_TYPE, 0, -1, -1)
+        tile = (CROSSROADS_TYPE, 0, -1, -1)
         board[ssize - 1, ssize - 1] = tile
     board_view = board
+    treasure_sides = range(0, 4, int(4 / players))
     for orientation in range(4):
         start_pos = 1
         end_pos = ssize - 1
         # t-junctions
         for layer in range(math.floor(ssize / 2)):
             for item in range(start_pos, end_pos):
-                tile = (T_TYPE, orientation, treasure_idx, -1)
+                if orientation in treasure_sides:
+                    tile = (T_TYPE, orientation, treasure_idx, -1)
+                    treasure_idx += 1
+                else:
+                    tile = (T_TYPE, orientation, -1, -1)
                 board_view[layer * 2, item * 2] = tile
-                treasure_idx += 1
             if layer % 2 == 1:
                 start_pos += 1
             end_pos -= 1
@@ -135,7 +137,23 @@ def mk_mobile_tiles(st_t, co_t, st_nt, co_nt, treasure_idx):
     return mobile_tiles
 
 
-def mk_box_contents(size=7):
+def get_mobile_tile_composition(size, static_treasures, players=4):
+    assert is_valid_players(players)
+    ssize = static_size(size)
+    m_treasures = max(static_treasures, players * (ssize - 1))
+    mobile_tiles = size * size - ssize * ssize + 1
+    nt_tiles = mobile_tiles - m_treasures
+    st_nt = math.floor(nt_tiles * 3 / 5)
+    co_nt = nt_tiles - st_nt
+    return {
+        'st_t': math.ceil(m_treasures / 2),
+        'co_t': math.floor(m_treasures / 2),
+        'st_nt': st_nt,
+        'co_nt': co_nt,
+    }
+
+
+def mk_box_contents(size=7, players=4):
     """
     Make the contents of a (variation of a) Ravensburger Labyrinth box.
 
@@ -149,18 +167,15 @@ def mk_box_contents(size=7):
     num_treasures is the total number of treasures
     """
     assert is_valid_board_size(size)
+    assert is_valid_players(players)
     board = np.ndarray((size, size), tile_dt)
-    ssize = static_size(size)
     place_corners(board)
-    treasure_idx = place_static(board)
-    m_treasures = max(treasure_idx, 4 * (ssize - 1))
-    hm_treasures  = math.floor(m_treasures / 2)
-    mobile_tiles = size * size - ssize * ssize + 1
-    nt_tiles = mobile_tiles - m_treasures
-    st_nt = math.floor(nt_tiles * 3 / 5)
-    co_nt = nt_tiles - st_nt
-    mobile_tiles = mk_mobile_tiles(hm_treasures, hm_treasures, st_nt, co_nt, treasure_idx)
-    #print (board.shape)
+    treasure_idx = place_static(board, players=players)
+    tile_composition = get_mobile_tile_composition(size, treasure_idx,
+                                                   players=players)
+    mobile_tiles = mk_mobile_tiles(treasure_idx=treasure_idx,
+                                   **tile_composition)
+    m_treasures = tile_composition['st_t'] + tile_composition['co_t']
     return (board, mobile_tiles, treasure_idx + m_treasures)
 
 
@@ -254,6 +269,9 @@ def is_inside_board(position, board):
 
 def is_valid_board_size(size):
     return size >= 3 and size % 2 == 1
+
+def is_valid_players(players):
+    return players in VALID_PLAYERS
 
 
 def valid_pushes(size):

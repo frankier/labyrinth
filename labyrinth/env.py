@@ -196,7 +196,7 @@ def mk_initial_labyrinth_state(np_random, board, mobile_tiles, num_treasures, nu
 #    print(player_positions)
 #    print("\n")
     player_cards = np.split(
-        np_random.permutation(num_treasures), 4)[:num_players]
+        np_random.permutation(num_treasures), num_players)
 #    print (player_cards)
 #    print (num_treasures)
     player_cards_found = [0] * num_players
