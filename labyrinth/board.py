@@ -196,15 +196,18 @@ def num_lanes(size):
 
 
 def do_push(board_state, push):
-    (push_side, push_lane) = push
+    (push_side, push_lane, orientation) = push
     push_row = 2 * push_lane + 1
     new_board = np.copy(board_state[0])
+    spare_tile = np.copy(board_state[1])
     board = np.rot90(new_board, push_side)
-    a=np.append(board[:,push_row],board_state[1])
-    a = np.roll(a,1)
+    new_orientation = orientation % NUM_ORIENTATIONS[spare_tile['path_type']]
+    spare_tile['orientation'] = new_orientation
+    a = np.append(board[:, push_row], spare_tile)
+    a = np.roll(a, 1)
     new_spare_tile = a[-1]
-    a=a[:-1]
-    board[:,push_row] = a
+    a = a[:-1]
+    board[:, push_row] = a
     return (new_board, new_spare_tile)
 
 
@@ -252,8 +255,9 @@ def get_reach_aux(reachability, board):
                     neighbour = neighbours[z]
                     # The neighbour might not actually exist. test if it's inside the board.
                     if is_inside_board(neighbour,board):
-                        if (can_pass(z,board[x][y],board[neighbour[0]][neighbour[1]])):
-                            reachability[neighbours[z][0]][neighbours[z][1]]=True
+                        passing = can_pass(z,board[x][y],board[neighbour[1]][neighbour[0]])
+                        if passing:
+                            reachability[neighbours[z][1]][neighbours[z][0]]=True
     # If there was a change repeat. Otherwise it's done
     change = not np.array_equal(previous,reachability)
     if (change):

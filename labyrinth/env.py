@@ -74,13 +74,13 @@ class LabyrinthState(object):
         new_board_state = do_push(self.board_state, push)
 
         current_position = self.current_position()
-        (move_to_x, move_to_y) = move
-        new_position = (move_to_x, move_to_y)
-        if not get_board_reachability(new_board_state[0],current_position)[new_position]:
+        reachability = get_board_reachability(
+                new_board_state[0], current_position)
+        if not reachability[move]:
             raise IllegalMove()
         self.board_state = new_board_state
         self.players[self.player_turn]=list(self.players[self.player_turn])
-        self.players[self.player_turn][0] = new_position
+        self.players[self.player_turn][0] = move
         self.players[self.player_turn] = tuple(self.players[self.player_turn])
         self.next_turn()
         return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO
@@ -142,7 +142,7 @@ def draw_players(coord, player_positions):
     return " "
 
 
-def draw_board(board_state, player_positions, long_treasures=False):
+def draw_board(board_state, player_positions=(), long_treasures=False):
     rows, cols = board_state.shape
     return "\n".join(
         " ".join(
@@ -199,6 +199,7 @@ class IllegalMove(Exception):
 
 
 class LabyrinthEnv(gym.Env):
+    metadata = {"render.modes": ["human", "ansi"]}
     def __init__(self, board_size, opponents, illegal_move_mode):
         assert is_valid_board_size(board_size)
         self.board_size = board_size
@@ -214,7 +215,8 @@ class LabyrinthEnv(gym.Env):
         self.state = None
 
         push_space = spaces.Tuple((spaces.Discrete(4),
-                                   spaces.Discrete(num_lanes(board_size))))
+                                   spaces.Discrete(num_lanes(board_size)),
+                                   spaces.Discrete(4)))
         move_space = spaces.Tuple((spaces.Discrete(board_size),
                                    spaces.Discrete(board_size)))
 
@@ -224,12 +226,17 @@ class LabyrinthEnv(gym.Env):
         self.np_random, self.seed = seeding.np_random(seed)
         return [self.seed]
 
+    @property
+    def num_players(self):
+        return 1 + len(self.opponents)
+
     def _reset(self):
-        board, mobile_tiles, num_treasures = mk_box_contents(self.board_size)
+        board, mobile_tiles, num_treasures = \
+                mk_box_contents(self.board_size, players=self.num_players)
 
         self.state = mk_initial_labyrinth_state(
             self.np_random, board, mobile_tiles, num_treasures,
-            num_players=len(self.opponents) + 1)
+            num_players=self.num_players)
 
         self.done = False
 
