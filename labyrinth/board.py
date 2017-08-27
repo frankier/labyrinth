@@ -196,6 +196,13 @@ def num_lanes(size):
 
 
 def do_push(board_state, push):
+    """
+    Takes a (board, spare) -> (new_board, new_spare)
+    by performing (side, lane, orientation
+    side 0, 1, 2, 3 = n, e, s, w
+    lane is from the left corner, if we rotate so our push side is on top
+    orientation is 0, 1, 2, 3 = n, e, s, w
+    """
     (push_side, push_lane, orientation) = push
     push_row = 2 * push_lane + 1
     new_board = np.copy(board_state[0])
@@ -203,11 +210,11 @@ def do_push(board_state, push):
     board = np.rot90(new_board, push_side)
     new_orientation = orientation % NUM_ORIENTATIONS[spare_tile['path_type']]
     spare_tile['orientation'] = new_orientation
-    a = np.append(board[:, push_row], spare_tile)
+    a = np.append(board[push_row, :], spare_tile)
     a = np.roll(a, 1)
     new_spare_tile = a[-1]
     a = a[:-1]
-    board[:, push_row] = a
+    board[push_row, :] = a
     return (new_board, new_spare_tile)
 
 
@@ -225,43 +232,45 @@ def get_tile_passability(tile):
 def get_board_reachability(board, position):
     # Takes board, position
     # Returns boolean array of all squares reachable on board from position
-    reachability = np.zeros(board.shape,dtype=bool)
-    reachability[position[0]][position[1]]=True
-    return get_reach_aux(reachability,board);
+    reachability = np.zeros(board.shape, dtype=bool)
+    reachability[position[0]][position[1]] = True
+    return get_reach_aux(reachability, board)
 
 
 def get_neighbour_coords(position):
-    return ((position[0]-1,position[1]),
-        (position[0],position[1]+1),
-        (position[0]+1,position[1]),
-        (position[0],position[1]-1))
+    return ((position[0],     position[1] - 1),
+            (position[0] + 1, position[1]),
+            (position[0],     position[1] + 1),
+            (position[0] - 1, position[1]))
 
 
 def can_pass(direction, tile_from, tile_to):
-    return get_tile_passability(tile_to)[(direction+2)%4] and get_tile_passability(tile_from)[direction]
+    return get_tile_passability(tile_to)[(direction + 2) % 4] and \
+            get_tile_passability(tile_from)[direction]
 
 
 def get_reach_aux(reachability, board):
     # Iterate through all cells and find all that are known to be reachable.
     previous = reachability
     # Traverse over all tiles
-    for x in range(0,len(reachability)):
-        for y in range(0,len(reachability[0])):
+    for x in range(0, len(reachability)):
+        for y in range(0, len(reachability[0])):
             # If that tile is reachable
-            if (reachability[x][y]==True):
-                neighbours = get_neighbour_coords((x,y))
+            if reachability[x][y]:
+                neighbours = get_neighbour_coords((x, y))
                 # then traverse over all neighbours. z = 0 means north neighbour. z = 1 means east neighbour etc. 
-                for z in range(0,3):
+                for z in range(4):
                     neighbour = neighbours[z]
                     # The neighbour might not actually exist. test if it's inside the board.
-                    if is_inside_board(neighbour,board):
-                        passing = can_pass(z,board[x][y],board[neighbour[1]][neighbour[0]])
-                        if passing:
-                            reachability[neighbours[z][1]][neighbours[z][0]]=True
+                    if not is_inside_board(neighbour, board):
+                        continue
+                    passing = can_pass(z, board[x][y], board[neighbour])
+                    if passing:
+                        reachability[neighbour[0]][neighbour[1]] = True
     # If there was a change repeat. Otherwise it's done
-    change = not np.array_equal(previous,reachability)
-    if (change):
-        return get_reach_aux(reachability,board)
+    change = not np.array_equal(previous, reachability)
+    if change:
+        return get_reach_aux(reachability, board)
     else:
         return reachability
 
@@ -278,9 +287,24 @@ def is_valid_players(players):
 
 
 def valid_pushes(size):
-    return ((push_side, push_lane) for push_lane in range(num_lanes(size)) for push_side in range(4))
+    return ((push_side, push_lane, orientation)
+            for push_lane in range(num_lanes(size))
+            for push_side in range(4)
+            for orientation in range(4))
 
 
 def valid_moves(board_state, current_position, push):
     (possible_board, spare_tile) = do_push(board_state, push)
-    return np.nonzero(get_board_reachability(possible_board, current_position))
+    reachability = get_board_reachability(possible_board, current_position)
+    return np.transpose(np.nonzero(reachability))
+
+
+def get_possible_actions(board_state, current_position):
+    actions = []
+    size, size = board_state[0].shape
+    pushes = valid_pushes(size)
+    for push in pushes:
+        moves = valid_moves(board_state, current_position, push)
+        for move in moves:
+            actions.append((push, tuple(move)))
+    return actions

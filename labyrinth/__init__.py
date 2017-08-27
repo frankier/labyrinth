@@ -6,12 +6,14 @@ from gym.envs.registration import register
 
 
 for board_size in [3, 5, 7]:
-    register(
-        id='Labyrinth{0}x{0}-v0'.format(board_size),
-        entry_point='labyrinth.env:LabyrinthEnv',
-        kwargs={
-            'opponents': [],
-            'illegal_move_mode': 'lose',
-            'board_size': board_size,
-        },
-    )
+    for treasure_reward in [0, 1]:
+        register(
+            id='Labyrinth{0}x{0}-tr{1}-v0'.format(board_size, treasure_reward),
+            entry_point='labyrinth.env:LabyrinthEnv',
+            kwargs={
+                'opponents': [],
+                'illegal_move_mode': 'lose',
+                'board_size': board_size,
+                'treasure_reward': treasure_reward,
+            },
+        )

@@ -11,7 +11,8 @@ from gym.utils import seeding
 
 from .board import (NUM_ORIENTATIONS, PATH_SYMBOLS, PLAYER_COLORS,
                     PLAYER_SYMBOLS, do_push, get_board_reachability,
-                    is_valid_board_size, mk_box_contents, num_lanes)
+                    get_possible_actions, is_valid_board_size, mk_box_contents,
+                    num_lanes)
 
 
 ## State
@@ -40,7 +41,6 @@ class LabyrinthState(object):
 
     @property
     def is_terminal(self):
-        # TODO: Return whether state is terminal or not
         return any(self.player_has_won(player) for player in range(self.num_players))
 
     @property
@@ -52,16 +52,13 @@ class LabyrinthState(object):
 
     def player_has_won(self, player):
         (pos, cards, found) = self.players[player]
-        if found == len(cards):
-            return 1
-        else:
-            return 0
+        return found == len(cards) and self.board_state[0][pos]['base'] == player
 
     def current_position(self):
         return self.player_positions[self.player_turn]
 
     def next_turn(self):
-        self.player_turn = (self.player_turn + 1) % self.num_players
+        return (self.player_turn + 1) % self.num_players
 
     def act(self, action):
         '''
@@ -79,17 +76,30 @@ class LabyrinthState(object):
         if not reachability[move]:
             raise IllegalMove()
         self.board_state = new_board_state
-        self.players[self.player_turn]=list(self.players[self.player_turn])
-        self.players[self.player_turn][0] = move
-        self.players[self.player_turn] = tuple(self.players[self.player_turn])
-        self.next_turn()
-        return LabyrinthState(self.board_state, self.player_turn, self.players, self.num_treasures) # TODO
+        next_players = self.players.copy()
+        (pos, cards, found) = self.players[self.player_turn]
+        new_found = found
+        if found < len(cards) and \
+                cards[found] == new_board_state[0][move]['treasure']:
+            new_found += 1
+        next_players[self.player_turn] = (move, cards, new_found)
+        return LabyrinthState(
+            new_board_state,
+            self.next_turn(),
+            next_players,
+            self.num_treasures), new_found != found
 
     def observe(self, player):
         # TODO: Should return player x's observation of the state here rather
         # than the whole state (ie strictly we should delete information the
         # agent can't see)
         return self
+
+    def get_possible_actions(self):
+        """
+        Convience method
+        """
+        return get_possible_actions(self.board_state, self.current_position())
 
     def __repr__(self):
         bits = []
@@ -105,7 +115,7 @@ class LabyrinthState(object):
             player_bits = player_statuses[player_idx]
             player_bits.append("= {} =".format(PLAYER_COLORS[player_idx]))
             for card_idx, card in enumerate(cards):
-                current = card_idx == found
+                current = card_idx < found
                 player_bits.append("{}{}".format("*" if current else "", treasure_letter(card, long_treasures=self.long_treasures)))
         for row in zip(*player_statuses):
             bits.append(("{: >18} " * self.num_players).format(*row))
@@ -200,7 +210,10 @@ class IllegalMove(Exception):
 
 class LabyrinthEnv(gym.Env):
     metadata = {"render.modes": ["human", "ansi"]}
-    def __init__(self, board_size, opponents, illegal_move_mode):
+    def __init__(self, board_size, opponents, illegal_move_mode,
+                 treasure_reward=0, win_reward=1,
+                 illegal_reward=-1, loss_reward=-1,
+                 opp_treasure_reward=0):
         assert is_valid_board_size(board_size)
         self.board_size = board_size
 
@@ -210,6 +223,12 @@ class LabyrinthEnv(gym.Env):
 
         assert illegal_move_mode in ['lose', 'raise']
         self.illegal_move_mode = illegal_move_mode
+
+        self.treasure_reward = treasure_reward
+        self.win_reward = win_reward
+        self.illegal_reward = illegal_reward
+        self.loss_reward = loss_reward
+        self.opp_treasure_reward = opp_treasure_reward
 
         # Properly initialised by _reset
         self.state = None
@@ -272,7 +291,7 @@ class LabyrinthEnv(gym.Env):
 
         # Play
         try:
-            self.state = self.state.act(action)
+            self.state, got_treasure = self.state.act(action)
         except IllegalMove:
             if self.illegal_move_mode == 'raise':
                 six.reraise(*sys.exc_info())
@@ -282,9 +301,12 @@ class LabyrinthEnv(gym.Env):
                 return self.state.observe(0), -1., True, {'state': self.state}
 
         # Opponent play
+        opp_treasures = 0
         for i, opponent in enumerate(self.opponents):
             if not self.state.is_terminal:
-                self.state, opponent_resigned = self._exec_opponent_play(self.state)
+                (self.state, opp_got_treasure), opponent_resigned = self._exec_opponent_play(self.state)
+                if opp_got_treasure:
+                    opp_treasures += 1
                 # After opponent play, we should be back to the original color
                 assert self.state.color == self.player_color
 
@@ -293,17 +315,18 @@ class LabyrinthEnv(gym.Env):
                 # opponents resign
                 if opponent_resigned:
                     self.done = True
-                    return self.state.board.encode(), 1., True, {'state': self.state}
+                    return self.state.observe(0), self.win_reward, True, {'state': self.state}
 
         # Reward: if nonterminal, then the reward is 0
         if not self.state.is_terminal:
             self.done = False
+            reward = (got_treasure and self.treasure_reward) - opp_treasures * self.opp_treasure_reward
             return self.state.observe(0), 0., False, {'state': self.state}
-
-        # We're in a terminal state. Reward is 1 if won, -1 if lost
-        assert self.state.is_terminal
-        self.done = True
-        return self.state.observe(0), 1 if self.state.board.winner == 0 else -1, True, {'state': self.state}
+        else:
+            # We're in a terminal state. Reward is 1 if won, -1 if lost
+            assert self.state.is_terminal
+            self.done = True
+            return self.state.observe(0), self.win_reward if self.state.winner == 0 else self.loss_reward, True, {'state': self.state}
 
     def _exec_opponent_play(self, curr_state):
         assert curr_state.turn != 0
@@ -320,11 +343,3 @@ class LabyrinthEnv(gym.Env):
         for opponent in self.opponents:
             if opponent == 'random':
                 self.opponent_policies.append(make_random_policy(self.np_random))
-
-    def get_possible_actions(self, board):
-        actions = []
-        pushes = list(self.state.valid_pushes())
-        for push in pushes:
-            move = self.state.valid_moves(push)
-            actions.append((push, move))
-        return actions
