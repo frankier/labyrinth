@@ -95,6 +95,11 @@ class LabyrinthState(object):
         # agent can't see)
         return self
 
+    def item(self):
+        immutable_state = (tuple(tuple(cell) for cell in self.board_state[0].flatten()),
+                tuple(self.board_state[1]), tuple(self.players))
+        return immutable_state
+
     def get_possible_actions(self):
         """
         Convience method
@@ -191,8 +196,9 @@ def mk_initial_labyrinth_state(np_random, board, mobile_tiles, num_treasures, nu
     player_positions = []
     for pos in [0, 3, 1, 2][:num_players]:
         player_positions.append(((pos // 2) * far, (pos % 2) * far))
-    player_cards = np.split(
-        np_random.permutation(num_treasures), num_players)
+    player_cards = (
+        tuple(cards) for cards in np.split(
+            np_random.permutation(num_treasures), num_players))
     player_cards_found = [0] * num_players
 
     players = list(zip(player_positions, player_cards, player_cards_found))
