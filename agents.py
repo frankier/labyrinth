@@ -14,12 +14,18 @@ import labyrinth  # noqa
 from labyrinth.board import get_possible_actions, get_board_reachability
 
 
+def print_reachability(board, position):
+    reachability = get_board_reachability(board, position)
+    print(np.transpose(reachability))
+
+
 class ReplAgent(object):
     """AI hack - try using a human!"""
     def __init__(self, wrapper):
         self.env = wrapper.env
 
     def act(self, observation, reward, done):
+        from labyrinth.env import LabyrinthState
         while True:
             inp = input()
             if inp.startswith("ob"):
@@ -32,9 +38,19 @@ class ReplAgent(object):
                 possible_actions = observation.get_possible_actions()
                 print(possible_actions)
             elif inp.startswith("ma"):
-                reachability = get_board_reachability(
-                    ob.board_state[0], ob.current_position())
-                print(np.transpose(reachability))
+                print_reachability(observation.board_state[0],
+                                   observation.current_position())
+            elif inp.startswith("pu"):
+                push = eval(inp.split(" ", 1)[1])
+                new_board_state, new_players = observation.act_push(push)
+                state = LabyrinthState(
+                    new_board_state,
+                    observation.player_turn,
+                    new_players,
+                    observation.num_treasures)
+                print(state)
+                print_reachability(state.board_state[0],
+                                   state.current_position())
             else:
                 action = eval(inp)
                 break
