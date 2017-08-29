@@ -315,11 +315,11 @@ def is_valid_players(players):
     return players in VALID_PLAYERS
 
 
-def valid_pushes(size):
+def valid_pushes(size, num_orientations):
     return ((push_side, push_lane, orientation)
             for push_lane in range(num_lanes(size))
             for push_side in range(4)
-            for orientation in range(4))
+            for orientation in range(num_orientations))
 
 
 def valid_moves(board_state, current_position, push):
@@ -332,7 +332,7 @@ def valid_moves(board_state, current_position, push):
 def get_possible_actions(board_state, current_position):
     actions = []
     size, size = board_state[0].shape
-    pushes = valid_pushes(size)
+    pushes = valid_pushes(size, NUM_ORIENTATIONS[board_state[1]['path_type']])
     for push in pushes:
         moves = valid_moves(board_state, current_position, push)
         for move in moves:
