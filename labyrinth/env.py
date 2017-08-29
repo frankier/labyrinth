@@ -114,21 +114,26 @@ class LabyrinthState(object):
         return self
 
     def item(self):
-        def extract_tuple(dictish, keys):
-            tuple(dictish[k] for k in keys)
-        immutable_board = tuple(
-            extract_tuple(cell, ['path_type', 'treasure', 'orientation'])
-            for cell in self.board_state[0].flatten())
-        spare_tile = extract_tuple(self.board_state[1],
-                                   ('path_type', 'treasure'))
-        immutable_state = (immutable_board, spare_tile, tuple(self.players))
-        return immutable_state
+        if not hasattr(self, '_item'):
+            def extract_tuple(dictish, keys):
+                return tuple(dictish[k] for k in keys)
+            immutable_board = tuple(
+                extract_tuple(cell, ['path_type', 'treasure', 'orientation'])
+                for cell in self.board_state[0].flatten())
+            spare_tile = extract_tuple(self.board_state[1],
+                                       ('path_type', 'treasure'))
+            self._item = (immutable_board, spare_tile, tuple(self.players))
+        return self._item
 
-    def get_possible_actions(self):
+    @property
+    def possible_actions(self):
         """
-        Convience method
+        Convience method and caching point
         """
-        return get_possible_actions(self.board_state, self.current_position())
+        if not hasattr(self, '_possible_actions'):
+            self._possible_actions = \
+                get_possible_actions(self.board_state, self.current_position())
+        return self._possible_actions
 
     def __repr__(self):
         bits = []

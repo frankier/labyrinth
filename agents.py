@@ -11,7 +11,7 @@ import gym
 from gym import wrappers
 
 import labyrinth  # noqa
-from labyrinth.board import get_possible_actions, get_board_reachability
+from labyrinth.board import get_board_reachability
 
 
 def print_reachability(board, position):
@@ -35,7 +35,7 @@ class ReplAgent(object):
             elif inp.startswith("do"):
                 print(done)
             elif inp.startswith("po"):
-                possible_actions = observation.get_possible_actions()
+                possible_actions = observation.possible_actions
                 print(possible_actions)
             elif inp.startswith("ma"):
                 print_reachability(observation.board_state[0],
@@ -70,7 +70,7 @@ class PossibleSampler(object):
         self.action_space = env.action_space
 
     def sample(self, ob):
-        return random.choice(ob.get_possible_actions())
+        return random.choice(ob.possible_actions)
 
 
 class RandomAgent(object):
@@ -82,14 +82,26 @@ class RandomAgent(object):
         return self.sampler.sample(observation)
 
 
-def argmax(d):
+def sparse_maxes(d, keys):
+    unread = set(keys)
     max_k = None
     max_v = -math.inf
     for k, v in d.items():
         if v >= max_v:
             max_k = k
             max_v = v
-    return max_k
+        unread.remove(k)
+    if max_v <= 0 and len(unread):
+        return random.choice(tuple(unread)), 0.0
+    return max_k, max_v
+
+
+def sparse_max(d, keys):
+    return sparse_maxes(d, keys)[1]
+
+
+def sparse_argmax(d, keys):
+    return sparse_maxes(d, keys)[0]
 
 
 class TabularQAgent(object):
@@ -99,25 +111,11 @@ class TabularQAgent(object):
 
     def __init__(self, env, **userconfig):
         self.config = {
-            "init_mean": 0.0,      # Initialize Q values with this mean
-            "init_dev": 0.0,       # Initialize Q values with this individual deviation
             "learning_rate": 0.1,
             "eps": 0.05,            # Epsilon in epsilon greedy policies
             "discount": 0.95}        # Number of iterations
         self.config.update(userconfig)
         self.q = {}
-
-    def add_q_values(self, action_dict, ob):
-        for action in ob.get_possible_actions():
-            action_dict[action] = \
-                random.gauss(self.config["init_mean"],
-                             self.config["init_dev"])
-
-    def ensure_action_dict(self, item, ob):
-        if item not in self.q:
-            action_dict = {}
-            self.add_q_values(action_dict, ob)
-            self.q[item] = action_dict
 
     def load_model(self, fn):
         self.q = pickle.load(open(fn, 'rb'))
@@ -130,13 +128,11 @@ class TabularQAgent(object):
             eps = self.config["eps"]
         # epsilon greedy.
         if np.random.random() > eps:
-            item = observation.item()
-            self.ensure_action_dict(item, observation)
-            action_dict = self.q[item]
-            action = argmax(action_dict)
+            action_dict = self.q.get(observation.item(), {})
+            action = sparse_argmax(action_dict, observation.possible_actions)
             if action:
                 return action
-        return random.choice(observation.get_possible_actions())
+        return random.choice(observation.possible_actions)
 
     def learn(self, env):
         config = self.config
@@ -149,18 +145,21 @@ class TabularQAgent(object):
             action = self.act(obs, reward, done)
             obs2, reward, done, _ = env.step(action)
             future = 0.0
-            item = obs2.item()
-            self.ensure_action_dict(item, obs2)
             if not done:
-                future = max(q[item].values())
-            q[item][action] -= \
-                self.config["learning_rate"] * \
-                (q[item][action] - reward - config["discount"] * future)
+                future = sparse_max(q.setdefault(obs2.item(), {}),
+                                    obs2.possible_actions)
+            obs_qs = q.setdefault(obs.item(), {})
+            prev_q = obs_qs.get(action, 0)
+            to_learn = reward + config["discount"] * future - prev_q
 
-            obs = obs2
+            if to_learn != 0:
+                q[obs.item()][action] = prev_q + \
+                                        self.config["learning_rate"] * to_learn
 
             if done:
                 return
+
+            obs = obs2
 
 
 agents = {
