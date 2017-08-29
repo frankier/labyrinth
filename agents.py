@@ -198,6 +198,34 @@ def run_training(agent, env, episode_count,
         agent.learn(env)
 
 
+def main(env_id, agent, episode_count, outdir,
+         seed=None, load=None, save=None, learn=False,
+         save_every=None, save_prefix=None):
+    if learn and not (save_every and save_prefix):
+        assert False, \
+            "If learn is true, save_every and save_prefix are manditory"
+    env = gym.make(env_id)
+
+    env = wrappers.Monitor(env, directory=outdir)
+    if seed:
+        env.seed(seed)
+    else:
+        env.seed()
+    agent = agents[agent](env)
+    if load:
+        agent.load_model(load)
+
+    if learn:
+        run_training(agent, env, episode_count, save_every, save_prefix)
+    else:
+        run(agent, env, episode_count)
+
+    # Close the env and write monitor result info to disk
+    env.close()
+    if save:
+        agent.save_model(save)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=None)
     parser.add_argument('agent', help='Select the agent to run')
@@ -216,6 +244,7 @@ if __name__ == '__main__':
                         help='Save agent model every x iterations')
     parser.add_argument('--learn', action="store_true",
                         help='Do agent model learning')
+    parser.add_argument('--outdir', help='Where to save statistics and recordings')
     parser.add_argument('--quiet',
                         help='Only print out slow progress (every 100 iters)')
     args = parser.parse_args()
@@ -234,30 +263,15 @@ if __name__ == '__main__':
     # want to change the amount of output.
     logger.setLevel(logging.INFO)
 
-    env = gym.make(args.env_id)
-
     # You provide the directory to write to (can be an existing
     # directory, including one with existing data -- all monitor files
     # will be namespaced). You can also dump to a tempdir if you'd
     # like: tempfile.mkdtemp().
-    outdir = '/tmp/gym-{}-{}-{}'.format(args.env_id, args.agent, random.randint(0, 100000))
-    env = wrappers.Monitor(env, directory=outdir)
-    if args.seed:
-        env.seed(args.seed)
+    if args.outdir:
+        outdir = args.outdir
     else:
-        env.seed()
-    agent = agents[args.agent](env)
-    if args.load:
-        agent.load_model(args.load)
+        outdir = '/tmp/gym-{}-{}-{}'.format(args.env_id, args.agent, random.randint(0, 100000))
 
-    episode_count = args.episode_count
-
-    if args.learn:
-        run_training(agent, env, episode_count, args.save_every, args.save_prefix)
-    else:
-        run(agent, env, episode_count)
-
-    # Close the env and write monitor result info to disk
-    env.close()
-    if args.save:
-        agent.save_model(args.save)
+    main(args.env_id, args.agent, args.episode_count, outdir,
+         seed=args.seed, load=args.load, save=args.save, learn=args.learn,
+         save_every=args.save_every, save_prefix=args.save_prefix)
