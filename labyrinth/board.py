@@ -181,6 +181,10 @@ def mk_box_contents(size=7, players=4):
 
 ## Utilities
 
+def reset_orientation(tile):
+    tile['orientation'] = 0
+
+
 def static_size(size):
     """
     Get the static size from a board size, eg a 7x7 board has 4x4 static tiles.
@@ -213,6 +217,7 @@ def do_push(board_state, push):
     a = np.append(board[push_row, :], spare_tile)
     a = np.roll(a, 1)
     new_spare_tile = a[-1]
+    reset_orientation(new_spare_tile)
     a = a[:-1]
     board[push_row, :] = a
     return (new_board, new_spare_tile)

@@ -12,7 +12,7 @@ from gym.utils import seeding
 from .board import (NUM_ORIENTATIONS, PATH_SYMBOLS, PLAYER_COLORS,
                     PLAYER_SYMBOLS, do_push, get_board_reachability,
                     get_possible_actions, is_valid_board_size, mk_box_contents,
-                    num_lanes)
+                    num_lanes, reset_orientation)
 
 
 ## State
@@ -96,8 +96,14 @@ class LabyrinthState(object):
         return self
 
     def item(self):
-        immutable_state = (tuple(tuple(cell) for cell in self.board_state[0].flatten()),
-                tuple(self.board_state[1]), tuple(self.players))
+        def extract_tuple(dictish, keys):
+            tuple(dictish[k] for k in keys)
+        immutable_board = tuple(
+            extract_tuple(cell, ['path_type', 'treasure', 'orientation'])
+            for cell in self.board_state[0].flatten())
+        spare_tile = extract_tuple(self.board_state[1],
+                                   ('path_type', 'treasure'))
+        immutable_state = (immutable_board, spare_tile, tuple(self.players))
         return immutable_state
 
     def get_possible_actions(self):
@@ -191,7 +197,9 @@ def mk_initial_labyrinth_state(np_random, board, mobile_tiles, num_treasures, nu
         if x % 2 == 1 or y % 2 == 1:
             board[x, y] = to_place[place_idx]
             place_idx += 1
-    board_state = (board, to_place[place_idx])
+    spare_tile = to_place[place_idx]
+    reset_orientation(spare_tile)
+    board_state = (board, spare_tile)
     turn = 0
     player_positions = []
     for pos in [0, 3, 1, 2][:num_players]:
