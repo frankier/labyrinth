@@ -211,7 +211,7 @@ def do_push(board_state, push):
     push_row = 2 * push_lane + 1
     new_board = np.copy(board_state[0])
     spare_tile = np.copy(board_state[1])
-    board = np.rot90(new_board, push_side)
+    board = np.rot90(new_board, 4 - push_side)
     new_orientation = orientation % NUM_ORIENTATIONS[spare_tile['path_type']]
     spare_tile['orientation'] = new_orientation
     a = np.append(board[push_row, :], spare_tile)
