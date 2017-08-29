@@ -189,7 +189,7 @@ def run(agent, env, episode_count):
 def run_training(agent, env, episode_count,
                  save_every=None, save_prefix="saved."):
     for t in range(episode_count):
-        if save_every and t > 0 and t % save_every == 0:
+        if save_every and t % save_every == 0:
             print("Saving")
             agent.save_model(save_prefix + str(t))
         print()
