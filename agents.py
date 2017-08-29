@@ -98,7 +98,6 @@ class TabularQAgent(object):
     """
 
     def __init__(self, env, **userconfig):
-        self.sampler = PossibleSampler(env)
         self.config = {
             "init_mean": 0.0,      # Initialize Q values with this mean
             "init_dev": 0.0,       # Initialize Q values with this individual deviation
@@ -137,7 +136,7 @@ class TabularQAgent(object):
             action = argmax(action_dict)
             if action:
                 return action
-        return self.sampler.sample(observation)
+        return random.choice(observation.get_possible_actions())
 
     def learn(self, env):
         config = self.config
