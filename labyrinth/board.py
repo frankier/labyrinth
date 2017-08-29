@@ -199,18 +199,33 @@ def num_lanes(size):
     return math.floor(size / 2)
 
 
-def do_push(board_state, push):
+def rot90_coord_once(coord, size):
+    return (((size - 1) - coord[1]), coord[0])
+
+
+def rot90_coord(coord, size, times):
+    out_coord = coord
+    for i in range(times):
+        out_coord = rot90_coord_once(out_coord, size)
+    return out_coord
+
+
+def do_push(board_state, positions, push):
     """
-    Takes a (board, spare) -> (new_board, new_spare)
+    Takes a ((board, spare), [position])
+                -> ((new_board, new_spare), [new_position])
     by performing (side, lane, orientation
     side 0, 1, 2, 3 = n, e, s, w
     lane is from the left corner, if we rotate so our push side is on top
     orientation is 0, 1, 2, 3 = n, e, s, w
     """
+    # Unpack
     (push_side, push_lane, orientation) = push
     push_row = 2 * push_lane + 1
+    # Make copies
     new_board = np.copy(board_state[0])
     spare_tile = np.copy(board_state[1])
+    # Rotate board and push in
     board = np.rot90(new_board, 4 - push_side)
     new_orientation = orientation % NUM_ORIENTATIONS[spare_tile['path_type']]
     spare_tile['orientation'] = new_orientation
@@ -220,7 +235,16 @@ def do_push(board_state, push):
     reset_orientation(new_spare_tile)
     a = a[:-1]
     board[push_row, :] = a
-    return (new_board, new_spare_tile)
+    # Rotate positions, wrapping around
+    size, size = board_state[0].shape
+    trans_positions = [rot90_coord(pos, size, 4 - push_side)
+                       for pos in positions]
+    for i, trans_pos in enumerate(trans_positions):
+        if trans_pos[0] == push_row:
+            trans_positions[i] = (trans_pos[0], (trans_pos[1] + 1) % size)
+    new_positions = [rot90_coord(pos, size, push_side)
+                     for pos in trans_positions]
+    return ((new_board, new_spare_tile), new_positions)
 
 
 def get_tile_passability(tile):
@@ -299,8 +323,9 @@ def valid_pushes(size):
 
 
 def valid_moves(board_state, current_position, push):
-    (possible_board, spare_tile) = do_push(board_state, push)
-    reachability = get_board_reachability(possible_board, current_position)
+    ((possible_board, spare_tile), [new_position]) = \
+            do_push(board_state, [current_position], push)
+    reachability = get_board_reachability(possible_board, new_position)
     return np.transpose(np.nonzero(reachability))
 
 

@@ -60,6 +60,19 @@ class LabyrinthState(object):
     def next_turn(self):
         return (self.player_turn + 1) % self.num_players
 
+    def act_push(self, push):
+        # Do push
+        positions = [pos for (pos, _cards, _found) in self.players]
+        new_board_state, new_positions = do_push(
+                self.board_state, positions, push)
+
+        # Make positions moves resulting from push
+        new_players = [(new_pos, cards, found)
+                       for ((old_pos, cards, found), new_pos)
+                       in zip(self.players, new_positions)]
+
+        return new_board_state, new_players
+
     def act(self, action):
         '''
         Executes an action for the current player
@@ -68,25 +81,30 @@ class LabyrinthState(object):
             a new LabyrinthState with the new board and the player switched
         '''
         (push, move) = action
-        new_board_state = do_push(self.board_state, push)
 
-        current_position = self.current_position()
+        new_board_state, new_players = self.act_push(push)
+
+        # Check move is legal
+        current_position = new_players[self.player_turn][0]
         reachability = get_board_reachability(
                 new_board_state[0], current_position)
         if not reachability[move]:
             raise IllegalMove()
-        self.board_state = new_board_state
-        next_players = self.players.copy()
-        (pos, cards, found) = self.players[self.player_turn]
+
+        # Update if treasure is found
+        (_pos, cards, found) = self.players[self.player_turn]
         new_found = found
         if found < len(cards) and \
                 cards[found] == new_board_state[0][move]['treasure']:
             new_found += 1
-        next_players[self.player_turn] = (move, cards, new_found)
+
+        # Make player move and update player treasures
+        new_players[self.player_turn] = (move, cards, new_found)
+
         return LabyrinthState(
             new_board_state,
             self.next_turn(),
-            next_players,
+            new_players,
             self.num_treasures), new_found != found
 
     def observe(self, player):
