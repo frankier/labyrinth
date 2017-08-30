@@ -1,2 +1,5 @@
 numpy==1.12.1
 gym==0.8.1
+# plotting
+matplotlib==2.0.2
+scipy==0.19.1
