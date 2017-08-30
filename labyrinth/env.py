@@ -358,7 +358,7 @@ class LabyrinthEnv(gym.Env):
         if not self.state.is_terminal:
             self.done = False
             reward = (got_treasure and self.treasure_reward) - opp_treasures * self.opp_treasure_reward
-            return self.state.observe(0), 0., False, {'state': self.state}
+            return self.state.observe(0), reward, False, {'state': self.state}
         else:
             # We're in a terminal state. Reward is 1 if won, -1 if lost
             assert self.state.is_terminal
