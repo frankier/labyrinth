@@ -6,6 +6,7 @@ import random
 import logging
 import sys
 import math
+from ast import literal_eval
 
 import gym
 from gym import wrappers
@@ -41,7 +42,7 @@ class ReplAgent(object):
                 print_reachability(observation.board_state[0],
                                    observation.current_position())
             elif inp.startswith("pu"):
-                push = eval(inp.split(" ", 1)[1])
+                push = literal_eval(inp.split(" ", 1)[1])
                 new_board_state, new_players = observation.act_push(push)
                 state = LabyrinthState(
                     new_board_state,
@@ -52,7 +53,7 @@ class ReplAgent(object):
                 print_reachability(state.board_state[0],
                                    state.current_position())
             else:
-                action = eval(inp)
+                action = literal_eval(inp)
                 break
         return action
 
@@ -200,7 +201,7 @@ def run_training(agent, env, episode_count,
 
 def main(env_id, agent, episode_count, outdir,
          seed=None, load=None, save=None, learn=False,
-         save_every=None, save_prefix=None, quiet=False):
+         save_every=None, save_prefix=None, quiet=False, **extra):
     if learn and not (save_every and save_prefix):
         assert False, \
             "If learn is true, save_every and save_prefix are manditory"
@@ -211,7 +212,7 @@ def main(env_id, agent, episode_count, outdir,
         env.seed(seed)
     else:
         env.seed()
-    agent = agents[agent](env)
+    agent = agents[agent](env, **extra)
     if load:
         agent.load_model(load)
 
@@ -248,7 +249,14 @@ if __name__ == '__main__':
     parser.add_argument('--outdir', help='Where to save statistics and recordings')
     parser.add_argument('--quiet',
                         help='Only print out slow progress (every 100 iters)')
-    args = parser.parse_args()
+    args, unknown_args = parser.parse_known_args()
+
+    print(unknown_args)
+    extra_args = {}
+    for k, v in zip(*[iter(unknown_args)] * 2):
+        if not k.startswith('--'):
+            assert False, "Extra arguments should start with --"
+        extra_args[k[2:]] = literal_eval(v)
 
     # Call `undo_logger_setup` if you want to undo Gym's logger setup
     # and configure things manually. (The default should be fine most
@@ -275,4 +283,4 @@ if __name__ == '__main__':
 
     main(args.env_id, args.agent, args.episode_count, outdir,
          seed=args.seed, load=args.load, save=args.save, learn=args.learn,
-         save_every=args.save_every, save_prefix=args.save_prefix)
+         save_every=args.save_every, save_prefix=args.save_prefix, **extra_args)
