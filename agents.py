@@ -170,15 +170,17 @@ agents = {
 }
 
 
-def run(agent, env, episode_count):
+def run(agent, env, episode_count, quiet=False):
     for i in range(episode_count):
         reward = 0
         done = False
-        print()
-        print(" ** Episode", i, " ** ")
+        if not quiet:
+            print()
+            print(" ** Episode", i, " ** ")
         ob = env.reset()
         while True:
-            env.render()
+            if not quiet:
+                env.render()
             action = agent.act(ob, reward, done)
             ob, reward, done, _ = env.step(action)
             if done:
@@ -186,7 +188,7 @@ def run(agent, env, episode_count):
 
 
 def run_training(agent, env, episode_count,
-                 save_every=None, save_prefix="saved."):
+                 save_every=None, save_prefix="saved.", quiet=False):
     for t in range(episode_count):
         if save_every and t % save_every == 0:
             print("Saving")
@@ -198,7 +200,7 @@ def run_training(agent, env, episode_count,
 
 def main(env_id, agent, episode_count, outdir,
          seed=None, load=None, save=None, learn=False,
-         save_every=None, save_prefix=None):
+         save_every=None, save_prefix=None, quiet=False):
     if learn and not (save_every and save_prefix):
         assert False, \
             "If learn is true, save_every and save_prefix are manditory"
@@ -214,9 +216,10 @@ def main(env_id, agent, episode_count, outdir,
         agent.load_model(load)
 
     if learn:
-        run_training(agent, env, episode_count, save_every, save_prefix)
+        run_training(agent, env, episode_count, save_every, save_prefix,
+                     quiet=quiet)
     else:
-        run(agent, env, episode_count)
+        run(agent, env, episode_count, quiet=quiet)
 
     # Close the env and write monitor result info to disk
     env.close()
