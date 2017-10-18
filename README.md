@@ -6,7 +6,7 @@
 $ python3 -m venv venv
 $ . ./venv/activate
 $ pip install -r requirements.txt
-$ python3 labyrinth.py
+$ python3 gen_board.py
 ```
 
 For every terminal you want to use to work on the project, you will have to rerun:
@@ -44,6 +44,22 @@ Each tile is represented by 3 characters:
 1. The first is a pictographic representation of the tile type and its orientation
 2. The second is R, G, B, Y for the colors of base or a, b, c... for the treasure squares
 3. The third is 0001 0010 0100 1000 for players R, G, B, Y and they are bitwise or'd together
+
+Agents
+======
+
+You can run an agent using agents.py. See the interactive help obtainable with:
+
+```
+$ python3 ./agents.py --help
+```
+
+Here's an example to run table based Q-learning checkpointing every 500
+generations:
+
+```
+$ python3 ./agents.py --episode-count 100000 --save-every 500 --save-prefix qtab-reward-eps10/model --save qtab-reward-eps10/final --outdir qtab-reward-eps10/recording/ --learn qtab Labyrinth3x3-tr1-v0 --eps 0.1
+```
 
 License
 =======
